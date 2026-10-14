@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cofidis · Alta de cliente · Demo de verificación de identidad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============ Colores de marca: ajústalos aquí ============ */
+  :root {
+    --brand:       #E2001A;   /* rojo Cofidis (valor de referencia, sustituir por el oficial) */
+    --brand-deep:  #A80015;
+    --brand-tint:  #FDECEE;
+    --ink:         #22252E;
+    --muted:       #6B6F7B;
+    --paper:       #F6F4F2;
+    --white:       #FFFFFF;
+    --line:        #E3DEDA;
+
+    --con-bg:      #181B23;
+    --con-bg-2:    #20242E;
+    --con-line:    #2D3240;
+    --con-ink:     #D8DCE6;
+    --con-dim:     #8A91A3;
+    --c-key:       #8FB8FF;
+    --c-str:       #9BE3B0;
+    --c-num:       #F2B880;
+    --c-kw:        #E59BD0;
+    --c-ok:        #4FD08A;
+    --c-warn:      #F2B24D;
+    --c-bad:       #FF6B6B;
+    --c-get:       #6AA9FF;
+
+    --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-code: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* ============ Cabecera ============ */
+  .top {
+    flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    height: 56px; padding: 0 24px;
+    background: var(--white);
+    border-bottom: 3px solid var(--brand);
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+  .wordmark { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--brand); }
+  .brand .sub { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .env {
+    font-size: 12.5px; font-weight: 600; color: var(--brand-deep);
+    background: var(--brand-tint); padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  }
+
+  /* ============ Disposición ============ */
+  .layout {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 480px);
+  }
+  .app { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 20px 24px 24px; gap: 16px; }
+
+  /* ============ Selector de flujos ============ */
+  .intro { margin: 0; color: var(--muted); max-width: 70ch; line-height: 1.5; }
+  .flows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .flow {
+    text-align: left; background: var(--white);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
+    transition: border-color .15s, background-color .15s;
+  }
+  .flow:hover:not(:disabled) { border-color: var(--brand); }
+  .flow[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-tint); box-shadow: inset 0 0 0 1px var(--brand); }
+  .flow:disabled { opacity: .55; cursor: not-allowed; }
+  .flow .name { font-weight: 700; font-size: 15px; }
+  .flow .desc { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  .flow .level { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--brand-deep); }
+  .flow.busy .name::after { content: " · creando solicitud…"; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+
+  .banner {
+    background: #FFF4E0; border: 1px solid #F1D49B; color: #7A4B00;
+    border-radius: 8px; padding: 10px 12px; line-height: 1.45;
+  }
+  .banner[hidden] { display: none; }
+
+  /* ============ Escenario (iframe) ============ */
+  .stage {
+    flex: 1; min-height: 360px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--white); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .empty { margin: auto; padding: 32px; max-width: 46ch; text-align: center; color: var(--muted); line-height: 1.55; }
+  .empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+  .frame { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .frame[hidden], .empty[hidden] { display: none; }
+  .frame-bar {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: #FAF8F6; border-bottom: 1px solid var(--line);
+  }
+  .frame-url {
+    flex: 1; min-width: 0; font-family: var(--font-code); font-size: 12px; color: var(--muted);
+    background: var(--white); border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .link-btn {
+    background: none; border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 10px; font-size: 12.5px; font-weight: 600; color: var(--ink); text-decoration: none; white-space: nowrap;
+  }
+  .link-btn:hover { border-color: var(--brand); color: var(--brand-deep); }
+  iframe { flex: 1; width: 100%; border: 0; background: var(--white); }
+
+  /* ============ Consola ============ */
+  .console {
+    min-height: 0; min-width: 0;
+    background: var(--con-bg); color: var(--con-ink);
+    display: grid; grid-template-rows: auto auto minmax(0, 1.1fr) minmax(0, 1fr);
+    border-left: 1px solid #000;
+  }
+  .con-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--con-line);
+  }
+  .con-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .con-actions { display: flex; gap: 6px; }
+  .cbtn {
+    background: var(--con-bg-2); border: 1px solid var(--con-line); color: var(--con-ink);
+    border-radius: 6px; padding: 4px 9px; font-size: 12px; font-weight: 500;
+  }
+  .cbtn:hover:not(:disabled) { border-color: var(--con-dim); }
+  .cbtn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .chips { display: flex; gap: 6px; padding: 10px 16px; overflow-x: auto; border-bottom: 1px solid var(--con-line); min-height: 46px; align-items: center; }
+  .chips:empty { display: none; }
+  .chip {
+    flex: none; display: inline-flex; gap: 6px; align-items: center;
+    background: transparent; border: 1px solid var(--con-line); border-radius: 999px;
+    padding: 3px 10px; font-family: var(--font-code); font-size: 11.5px; color: var(--con-dim);
+  }
+  .chip[aria-pressed="true"] { color: var(--con-ink); border-color: var(--con-dim); background: var(--con-bg-2); }
+
+  .pane { min-height: 0; overflow: auto; padding: 14px 16px; border-bottom: 1px solid var(--con-line); }
+  .pane-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+  .pane-title h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--con-ink); }
+  .muted { color: var(--con-dim); }
+  .hint { color: var(--con-dim); line-height: 1.5; font-size: 13px; margin: 0; }
+
+  .reqbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--con-bg-2); border: 1px solid var(--con-line); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 10px;
+  }
+  .m { font-family: var(--font-code); font-size: 12px; font-weight: 500; }
+  .m.POST { color: var(--c-ok); }
+  .m.GET  { color: var(--c-get); }
+  .u { font-family: var(--font-code); font-size: 12px; word-break: break-all; color: var(--con-ink); }
+
+  .tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--con-line); margin-bottom: 10px; }
+  .tab {
+    background: none; border: 0; padding: 4px 0 8px; color: var(--con-dim); font-size: 12.5px; font-weight: 500;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--con-ink); border-bottom-color: var(--brand); }
+  .tab .n { color: var(--con-dim); margin-left: 3px; }
+
+  table.kv { width: 100%; border-collapse: collapse; font-family: var(--font-code); font-size: 12px; }
+  table.kv td { padding: 4px 6px 4px 0; vertical-align: top; border-bottom: 1px solid var(--con-line); word-break: break-all; }
+  table.kv td:first-child { color: var(--c-key); width: 38%; }
+
+  pre.code {
+    margin: 0; font-family: var(--font-code); font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word; color: var(--con-ink);
+  }
+  .k { color: var(--c-key); } .s { color: var(--c-str); } .n { color: var(--c-num); } .b { color: var(--c-kw); }
+
+  .status { font-family: var(--font-code); font-size: 12px; display: inline-flex; gap: 10px; align-items: center; }
+  .st { font-weight: 500; }
+  .st.ok { color: var(--c-ok); } .st.err { color: var(--c-bad); } .st.warn { color: var(--c-warn); }
+
+  /* Webhooks */
+  .wh-tools { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--con-dim); }
+  .wh-tools label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--con-dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--con-dim); }
+  .dot.on { background: var(--c-ok); }
+  .wh-list { display: flex; flex-direction: column; gap: 6px; padding: 0; margin: 0; list-style: none; }
+  .wh {
+    border: 1px solid var(--con-line); border-radius: 8px; background: var(--con-bg-2); overflow: hidden;
+  }
+  .wh.fresh { animation: fresh 1.8s ease-out; }
+  @keyframes fresh { from { background: #35291F; border-color: var(--c-warn); } to { background: var(--con-bg-2); } }
+  .wh-head {
+    width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+    background: none; border: 0; padding: 8px 10px; color: var(--con-ink);
+  }
+  .wh-time { font-family: var(--font-code); font-size: 11.5px; color: var(--con-dim); flex: none; }
+  .wh-type { font-family: var(--font-code); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge {
+    flex: none; font-family: var(--font-code); font-size: 11px; padding: 2px 7px; border-radius: 4px;
+    background: #2B3140; color: var(--con-ink);
+  }
+  .badge.good { background: #1B3A2A; color: var(--c-ok); }
+  .badge.bad  { background: #3F2023; color: var(--c-bad); }
+  .badge.mid  { background: #3D3220; color: var(--c-warn); }
+  .badge.ret  { background: #25304A; color: var(--c-key); }
+  .wh-body { padding: 0 10px 10px; border-top: 1px solid var(--con-line); padding-top: 10px; }
+  .wh-body[hidden] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) { .wh.fresh { animation: none; } * { transition: none !important; } }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 1000px) {
+    body { height: auto; }
+    .layout { grid-template-columns: 1fr; }
+    .console { min-height: 720px; border-left: 0; }
+    .flows { grid-template-columns: 1fr; }
+    .stage { min-height: 520px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="wordmark">cofidis</span>
+    <span class="sub">Alta de cliente · España</span>
+  </div>
+  <span class="env">Entorno de pruebas</span>
+</header>
+
+<div class="layout">
+  <main class="app">
+    <p class="intro">Elige un tipo de verificación. La web crea la solicitud en Namirial Onboarding y abre aquí mismo el proceso de identificación; a la derecha ves la llamada y los avisos que va devolviendo.</p>
+
+    <div class="banner" id="banner" hidden></div>
+
+    <nav class="flows" id="flows" aria-label="Tipo de verificación"></nav>
+
+    <section class="stage" aria-live="polite">
+      <div class="empty" id="empty">
+        <strong>Todavía no hay ninguna verificación en marcha</strong>
+        Cuando elijas un flujo, el proceso del cliente aparecerá en este espacio.
+      </div>
+      <div class="frame" id="frame" hidden>
+        <div class="frame-bar">
+          <span class="frame-url" id="frameUrl"></span>
+          <a class="link-btn" id="frameOpen" target="_blank" rel="noopener">Abrir en pestaña nueva</a>
+          <button class="link-btn" id="frameClose" type="button">Cerrar</button>
+        </div>
+        <iframe id="iframe" title="Proceso de verificación de identidad"
+                allow="camera *; microphone *; fullscreen *; geolocation *; clipboard-write *"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <aside class="console" aria-label="Consola de integración">
+    <div class="con-head">
+      <h2>Consola de integración</h2>
+      <div class="con-actions">
+        <button class="cbtn" id="btnStatus" type="button" disabled>Consultar estado</button>
+        <button class="cbtn" id="btnClear" type="button">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <section class="pane" id="apiPane"></section>
+
+    <section class="pane" id="whPane" style="border-bottom:0"></section>
+  </aside>
+</div>
+
+<script>
+/* ============ Utilidades ============ */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clock = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour12: false });
+const bytes = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
+
+function hl(v) {
+  const s = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
+  if (s === undefined || s === null || s === '') return '<span class="muted">(vacío)</span>';
+  const re = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(s))) {
+    out += esc(s.slice(last, m.index));
+    if (m[1]) out += m[2] ? `<span class="k">${esc(m[1])}</span>${esc(m[2])}` : `<span class="s">${esc(m[1])}</span>`;
+    else if (m[3]) out += `<span class="b">${m[3]}</span>`;
+    else out += `<span class="n">${m[0]}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(s.slice(last));
+}
+
+function kvTable(obj) {
+  const rows = Object.entries(obj || {});
+  if (!rows.length) return '<p class="hint">Sin datos.</p>';
+  return `<table class="kv">${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</td></tr>`).join('')}</table>`;
+}
+
+function toCurl(c) {
+  const parts = [`curl -X ${c.request.method} '${c.request.url}'`];
+  for (const [k, v] of Object.entries(c.request.headers)) {
+    parts.push(k.toLowerCase() === 'x-api-key' ? `-H 'X-Api-Key: $NAMIRIAL_API_KEY'` : `-H '${k}: ${v}'`);
+  }
+  if (c.request.body) parts.push(`-d '${JSON.stringify(c.request.body).replace(/'/g, `'\\''`)}'`);
+  return parts.join(' \\\n  ');
+}
+
+/* ============ Estado ============ */
+const state = {
+  flows: [],
+  activeFlow: null,
+  calls: [],
+  selected: null,
+  reqId: null,
+  events: [],
+  showAll: false,
+  open: new Set(),
+  fresh: new Set(),
+  live: false,
+  reqTab: 'body',
+  resTab: 'body',
+};
+
+/* ============ Flujos ============ */
+async function loadFlows() {
+  const r = await fetch('/api/flows');
+  const d = await r.json();
+  state.flows = d.flows;
+  const banner = $('#banner');
+  if (!d.configured) {
+    banner.hidden = false;
+    banner.textContent = 'El servidor no tiene definida la clave de API de Namirial (NAMIRIAL_API_KEY). Los botones no podrán crear solicitudes hasta que la añadas.';
+  }
+  renderFlows();
+}
+
+function renderFlows(busyId) {
+  $('#flows').innerHTML = state.flows.map((f) => `
+    <button class="flow ${busyId === f.id ? 'busy' : ''}" data-flow="${f.id}" type="button"
+            aria-pressed="${state.activeFlow === f.id}" ${f.ready && !busyId ? '' : 'disabled'}
+            ${f.ready ? '' : 'title="Falta el requestTypeId de este flujo en el servidor"'}>
+      <span class="name">${esc(f.name)}</span>
+      <span class="desc">${esc(f.desc)}</span>
+      <span class="level">${esc(f.level)}</span>
+    </button>`).join('');
+}
+
+async function startFlow(id) {
+  state.activeFlow = id;
+  renderFlows(id);
+  closeFrame();
+  try {
+    const r = await fetch('/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flowId: id }),
+    });
+    const d = await r.json();
+    if (d.trace) addCall(d.trace);
+    if (d.error && !d.trace) showError(d.error);
+    if (d.ok && d.link) {
+      state.reqId = d.requestId;
+      $('#btnStatus').disabled = !d.requestId;
+      openFrame(d.link);
+    } else if (!d.error) {
+      showError('Namirial no devolvió un enlace. Revisa la respuesta en la consola.');
+    }
+  } catch (e) {
+    showError('No se pudo contactar con el servidor de la demo.');
+  }
+  renderFlows();
+  renderWebhooks();
+}
+
+function showError(msg) {
+  const el = $('#empty');
+  el.hidden = false;
+  el.innerHTML = `<strong>No se pudo iniciar la verificación</strong>${esc(msg)}`;
+}
+
+function openFrame(link) {
+  $('#empty').hidden = true;
+  $('#frame').hidden = false;
+  $('#frameUrl').textContent = link;
+  $('#frameOpen').href = link;
+  $('#iframe').src = link;
+}
+
+function closeFrame() {
+  $('#frame').hidden = true;
+  $('#iframe').src = 'about:blank';
+  const el = $('#empty');
+  el.hidden = false;
+  el.innerHTML = '<strong>Todavía no hay ninguna verificación en marcha</strong>Cuando elijas un flujo, el proceso del cliente aparecerá en este espacio.';
+}
+
+/* ============ Consola: llamadas ============ */
+function addCall(trace) {
+  state.calls.push(trace);
+  state.selected = trace.id;
+  state.reqTab = trace.request.body ? 'body' : 'params';
+  state.resTab = 'body';
+  renderChips();
+  renderApi();
+}
+
+function renderChips() {
+  $('#chips').innerHTML = state.calls.map((c, i) => {
+    const p = new URL(c.request.url).pathname.replace(/^.*\/api\/v2/, '');
+    return `<button class="chip" data-call="${c.id}" type="button" aria-pressed="${state.selected === c.id}">
+      <span class="m ${c.request.method}">${c.request.method}</span>${esc(p.length > 22 ? p.slice(0, 21) + '…' : p)}</button>`;
+  }).join('');
+}
+
+function renderApi() {
+  const pane = $('#apiPane');
+  const c = state.calls.find((x) => x.id === state.selected);
+  if (!c) {
+    pane.innerHTML = `<div class="pane-title"><h3>Llamada y respuesta</h3></div>
+      <p class="hint">Al elegir un flujo verás aquí la llamada exacta que el servidor hace a la API de Namirial Onboarding: dirección, cabeceras, parámetros y respuesta.</p>`;
+    return;
+  }
+  const q = c.request.query || {};
+  const hdr = c.request.headers || {};
+  const res = c.response;
+  const cls = res.status >= 200 && res.status < 300 ? 'ok' : res.status === 0 ? 'err' : res.status < 500 ? 'warn' : 'err';
+
+  const reqPane =
+    state.reqTab === 'params' ? kvTable(q) :
+    state.reqTab === 'headers' ? kvTable(hdr) :
+    `<pre class="code">${hl(c.request.body)}</pre>`;
+  const resPane =
+    state.resTab === 'headers' ? kvTable(res.headers) : `<pre class="code">${hl(res.body)}</pre>`;
+
+  const tab = (group, key, label, n) =>
+    `<button class="tab" role="tab" data-group="${group}" data-tab="${key}" aria-selected="${state[group + 'Tab'] === key}">${label}${n != null ? `<span class="n">${n}</span>` : ''}</button>`;
+
+  pane.innerHTML = `
+    <div class="pane-title"><h3>Llamada</h3><button class="cbtn" id="btnCurl" type="button">Copiar cURL</button></div>
+    <div class="reqbar"><span class="m ${c.request.method}">${c.request.method}</span><span class="u">${esc(c.request.url)}</span></div>
+    <div class="tabs" role="tablist">
+      ${tab('req', 'params', 'Params', Object.keys(q).length)}
+      ${tab('req', 'headers', 'Headers', Object.keys(hdr).length)}
+      ${tab('req', 'body', 'Body')}
+    </div>
+    ${reqPane}
+
+    <div class="pane-title" style="margin-top:18px">
+      <h3>Respuesta</h3>
+      <span class="status"><span class="st ${cls}">${res.status || 'Error'} ${esc(res.statusText || '')}</span><span class="muted">${res.ms} ms</span><span class="muted">${bytes(res.size)}</span></span>
+    </div>
+    <div class="tabs" role="tablist">
+      ${tab('res', 'body', 'Body')}
+      ${tab('res', 'headers', 'Headers', Object.keys(res.headers || {}).length)}
+    </div>
+    ${resPane}`;
+}
+
+/* ============ Consola: webhooks ============ */
+function eventRequestId(e) {
+  return e.body?.request?.requestId || e.body?.requestId || null;
+}
+
+function badgeFor(e) {
+  if (e.source === 'return') return `<span class="badge ret">retorno del usuario</span>`;
+  const st = (e.body?.request?.status || '').toUpperCase();
+  if (!st) return '';
+  const good = ['COMPLETED', 'APPROVED', 'ACCEPTED', 'FINALIZED'];
+  const bad = ['REJECTED', 'FAILED', 'ERROR', 'EXPIRED', 'CANCELLED', 'CANCELED'];
+  const cls = good.includes(st) ? 'good' : bad.includes(st) ? 'bad' : 'mid';
+  return `<span class="badge ${cls}">${esc(st)}</span>`;
+}
+
+function renderWebhooks() {
+  const pane = $('#whPane');
+  const list = state.events.filter((e) => state.showAll || !state.reqId || eventRequestId(e) === state.reqId);
+  const hidden = state.events.length - list.length;
+
+  const items = list.slice().reverse().map((e) => {
+    const open = state.open.has(e.id);
+    const title = e.source === 'return' ? 'wizardUrlBack' : (e.body?.type || 'webhook');
+    const payload = e.source === 'return' ? e.body : e.body;
+    return `<li class="wh ${state.fresh.has(e.id) ? 'fresh' : ''}">
+      <button class="wh-head" data-ev="${esc(e.id)}" type="button" aria-expanded="${open}">
+        <span class="wh-time">${clock(e.receivedAt)}</span>
+        <span class="wh-type">${esc(title)}</span>
+        ${badgeFor(e)}
+      </button>
+      <div class="wh-body" ${open ? '' : 'hidden'}>
+        <pre class="code">${hl(payload)}</pre>
+      </div>
+    </li>`;
+  }).join('');
+
+  pane.innerHTML = `
+    <div class="pane-title">
+      <h3>Webhooks recibidos <span class="muted">(${list.length})</span></h3>
+      <span class="live"><span class="dot ${state.live ? 'on' : ''}"></span>${state.live ? 'Escuchando' : 'Reconectando…'}</span>
+    </div>
+    <div class="wh-tools" style="margin-bottom:10px">
+      <label><input type="checkbox" id="chkAll" ${state.showAll ? 'checked' : ''}> Mostrar también de otras solicitudes${hidden > 0 && !state.showAll ? ` (${hidden} ocultos)` : ''}</label>
+    </div>
+    ${items ? `<ul class="wh-list">${items}</ul>` :
+      `<p class="hint">Aquí irán apareciendo los avisos que Namirial envía a esta web cada vez que cambia el estado de la solicitud.</p>`}`;
+}
+
+function pushEvent(e, fresh) {
+  if (state.events.some((x) => x.id === e.id)) return;
+  state.events.push(e);
+  if (fresh) {
+    state.fresh.add(e.id);
+    setTimeout(() => { state.fresh.delete(e.id); }, 2000);
+  }
+}
+
+function connectEvents() {
+  const es = new EventSource('/api/events');
+  es.addEventListener('init', (ev) => {
+    state.live = true;
+    JSON.parse(ev.data).forEach((e) => pushEvent(e, false));
+    renderWebhooks();
+  });
+  es.addEventListener('webhook', (ev) => {
+    pushEvent(JSON.parse(ev.data), true);
+    renderWebhooks();
+  });
+  es.onerror = () => { state.live = false; renderWebhooks(); };
+  es.onopen = () => { state.live = true; renderWebhooks(); };
+}
+
+/* ============ Retorno desde el iframe ============ */
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== location.origin || ev.data?.type !== 'namirial-return') return;
+  pushEvent({
+    id: 'return-' + Date.now(),
+    receivedAt: new Date().toISOString(),
+    source: 'return',
+    body: ev.data.params,
+  }, true);
+  renderWebhooks();
+});
+
+/* ============ Eventos de interfaz ============ */
+document.addEventListener('click', async (e) => {
+  const flow = e.target.closest('[data-flow]');
+  if (flow) return startFlow(flow.dataset.flow);
+
+  const chip = e.target.closest('[data-call]');
+  if (chip) { state.selected = chip.dataset.call; renderChips(); renderApi(); return; }
+
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { state[tab.dataset.group + 'Tab'] = tab.dataset.tab; renderApi(); return; }
+
+  const ev = e.target.closest('[data-ev]');
+  if (ev) {
+    const id = ev.dataset.ev;
+    state.open.has(id) ? state.open.delete(id) : state.open.add(id);
+    renderWebhooks();
+    return;
+  }
+
+  if (e.target.id === 'btnCurl') {
+    const c = state.calls.find((x) => x.id === state.selected);
+    if (c) { await navigator.clipboard.writeText(toCurl(c)); e.target.textContent = 'Copiado'; setTimeout(() => (e.target.textContent = 'Copiar cURL'), 1500); }
+    return;
+  }
+
+  if (e.target.id === 'btnClear') {
+    state.calls = []; state.selected = null; state.events = []; state.open.clear();
+    renderChips(); renderApi(); renderWebhooks();
+    return;
+  }
+
+  if (e.target.id === 'btnStatus' && state.reqId) {
+    e.target.disabled = true;
+    try {
+      const r = await fetch('/api/status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: state.reqId }),
+      });
+      const d = await r.json();
+      if (d.trace) addCall(d.trace);
+    } finally { e.target.disabled = false; }
+    return;
+  }
+
+  if (e.target.id === 'frameClose') { closeFrame(); state.activeFlow = null; renderFlows(); }
+});
+
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'chkAll') { state.showAll = e.target.checked; renderWebhooks(); }
+});
+
+/* ============ Arranque ============ */
+renderApi();
+renderWebhooks();
+loadFlows();
+connectEvents();
+</script>
+</body>
+</html>

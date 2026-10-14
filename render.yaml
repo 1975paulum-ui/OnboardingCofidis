@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: cofidis-onboarding-demo
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NAMIRIAL_API_KEY
+        sync: false
+      - key: NAMIRIAL_BASE_URL
+        value: https://test-eu-ie1-api.namirialonboarding.com/api/v2
+      - key: PUBLIC_URL
+        sync: false
+      - key: BASIC_AUTH_USER
+        sync: false
+      - key: BASIC_AUTH_PASS
+        sync: false
+      - key: WEBHOOK_AUTH_HEADER
+        value: x-webhook-secret
+      - key: WEBHOOK_AUTH_VALUE
+        sync: false

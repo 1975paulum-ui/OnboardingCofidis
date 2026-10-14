@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificación finalizada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #E2001A;
+    --ink: #22252E;
+    --muted: #6B6F7B;
+    --paper: #FFFFFF;
+    --ok: #1C7C4A;
+    --warn: #A8620A;
+    --bad: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    font-family: "Figtree", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    padding: 24px;
+  }
+  main { max-width: 420px; text-align: center; }
+  .mark {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: grid; place-items: center;
+    margin: 0 auto 20px;
+    color: #fff; background: var(--ok);
+    font-size: 28px; font-weight: 700;
+  }
+  .mark.warn { background: var(--warn); }
+  .mark.bad  { background: var(--bad); }
+  h1 { font-size: 24px; margin: 0 0 8px; line-height: 1.2; }
+  p  { margin: 0 0 6px; color: var(--muted); line-height: 1.5; }
+  .ref { margin-top: 18px; font-size: 13px; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <div class="mark" id="mark">✓</div>
+  <h1 id="title">Hemos recibido tu verificación</h1>
+  <p id="text">Ya puedes cerrar esta pantalla. Te avisaremos cuando termine la revisión.</p>
+  <p class="ref" id="ref"></p>
+</main>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.search));
+  const status = (q.status || '').toUpperCase();
+
+  const mark = document.getElementById('mark');
+  const title = document.getElementById('title');
+  const text = document.getElementById('text');
+
+  if (['REJECTED', 'FAILED', 'ERROR', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(status)) {
+    mark.textContent = '!';
+    mark.className = 'mark bad';
+    title.textContent = 'No hemos podido completar la verificación';
+    text.textContent = 'Puedes volver a intentarlo desde el principio.';
+  } else if (['ABORTED', 'INCOMPLETE'].includes(status)) {
+    mark.textContent = '!';
+    mark.className = 'mark warn';
+    title.textContent = 'La verificación quedó a medias';
+    text.textContent = 'Puedes retomarla cuando quieras.';
+  } else if (['RUNNING', 'PENDING', 'WAITING', 'IN_REVIEW'].includes(status)) {
+    title.textContent = 'Tu verificación está en revisión';
+    text.textContent = 'Un operador la revisará. No necesitas hacer nada más.';
+  }
+
+  document.getElementById('ref').innerHTML = status
+    ? 'Estado: <code>' + status.replace(/[<>&]/g, '') + '</code>'
+    : '';
+
+  // Avisamos a la web de la demo para que muestre el retorno en la consola
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'namirial-return', params: q }, location.origin);
+  }
+</script>
+</body>
+</html>
