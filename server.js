@@ -301,7 +301,7 @@ app.post('/webhooks/namirial', (req, res) => {
     }
   }
   publish({
-    id: req.body?.id || crypto.randomUUID(),
+    id: crypto.randomUUID(),
     receivedAt: new Date().toISOString(),
     source: 'webhook',
     headers: safeHeaders(req.headers),

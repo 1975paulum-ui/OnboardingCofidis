@@ -475,8 +475,9 @@ function renderApi() {
 }
 
 /* ============ Consola: webhooks ============ */
-function eventRequestId(e) {
-  return e.body?.request?.requestId || e.body?.requestId || null;
+// Busca el requestId en cualquier parte del payload, para no depender de su estructura exacta
+function mentionsRequest(e, reqId) {
+  try { return JSON.stringify(e.body).includes(reqId); } catch { return false; }
 }
 
 function badgeFor(e) {
@@ -491,7 +492,7 @@ function badgeFor(e) {
 
 function renderWebhooks() {
   const pane = $('#whPane');
-  const list = state.events.filter((e) => state.showAll || !state.reqId || eventRequestId(e) === state.reqId);
+  const list = state.events.filter((e) => state.showAll || !state.reqId || mentionsRequest(e, state.reqId));
   const hidden = state.events.length - list.length;
 
   const items = list.slice().reverse().map((e) => {
