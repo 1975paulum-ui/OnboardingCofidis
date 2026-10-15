@@ -286,6 +286,16 @@ app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
   res.json(out);
 });
 
+// Lee requestSettingsDefault de cada request type (para ver qué campos admite de verdad)
+app.get('/api/admin/settings', adminOnly, async (_req, res) => {
+  const out = [];
+  for (const f of FLOWS) {
+    const { trace } = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/settings` });
+    out.push({ flow: f.name, requestTypeId: f.requestTypeId, status: trace.response.status, body: trace.response.body });
+  }
+  res.json(out);
+});
+
 // Borra los webhooks de esta demo en los tres request types y los vuelve a crear con la URL https correcta
 app.get('/api/admin/reset-webhooks', adminOnly, async (req, res) => {
   const origin = publicOrigin(req);
