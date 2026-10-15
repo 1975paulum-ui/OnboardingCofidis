@@ -31,7 +31,7 @@ const ADMIN_TOKEN = val('ADMIN_TOKEN');
 // Namirial enviará ahí los códigos de verificación: pon un correo y un móvil a los que tengas acceso.
 // Idioma del asistente de Namirial: parámetro `language` de POST /requests.
 // La documentación no indica los valores admitidos; se prueba con 'fr' (alternativas: 'fr-FR', 'FR').
-const NAMIRIAL_LANGUAGE = val('NAMIRIAL_LANGUAGE', 'fr');
+const NAMIRIAL_LANGUAGE = val('NAMIRIAL_LANGUAGE', 'fr_FR');
 const DEMO_EMAIL = val('DEMO_EMAIL');
 const DEMO_PHONE_NUMBER = val('DEMO_PHONE_NUMBER'); // formato internacional, p. ej. +34600111222
 
