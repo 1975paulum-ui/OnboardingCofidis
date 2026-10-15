@@ -5,9 +5,9 @@ const val = (name, fallback) => (env[name] && env[name].trim() ? env[name].trim(
 const NAMIRIAL_API_KEY = val('NAMIRIAL_API_KEY');
 const NAMIRIAL_BASE_URL = val('NAMIRIAL_BASE_URL', 'https://test-eu-ie1-api.namirialonboarding.com/api/v2');
 const PUBLIC_URL = val('PUBLIC_URL');
-const REQUEST_TYPE_FAST = val('REQUEST_TYPE_FAST', '2dd9eec0-1def-4a11-9f6c-ec2edd5c08de');
-const REQUEST_TYPE_TRUST = val('REQUEST_TYPE_TRUST', '2fdd662c-6e20-4cf4-a02e-a59c7f74926f');
-const REQUEST_TYPE_ETSI = val('REQUEST_TYPE_ETSI', '4bd2e4a9-7010-4a90-b4e4-912cd6782b22');
+const REQUEST_TYPE_IDSELF = val('REQUEST_TYPE_IDSELF', '3673aa11-3cf8-4fc9-9e3e-1ab22d2d4b41');
+const REQUEST_TYPE_IDSELF_SIGN = val('REQUEST_TYPE_IDSELF_SIGN', 'fec0f3fe-60ac-46f2-a98e-1d457dab49cc');
+const REQUEST_TYPE_IDDOCCHECK = val('REQUEST_TYPE_IDDOCCHECK', 'c54da3e2-4326-4ea5-811c-4f57b5214e65');
 const WEBHOOK_AUTH_HEADER = val('WEBHOOK_AUTH_HEADER', 'x-webhook-secret');
 const WEBHOOK_AUTH_VALUE = val('WEBHOOK_AUTH_VALUE');
 
@@ -19,7 +19,7 @@ if (!NAMIRIAL_API_KEY || !PUBLIC_URL) {
 const base = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 const url = `${PUBLIC_URL.replace(/\/+$/, '')}/webhooks/namirial`;
 
-for (const id of [REQUEST_TYPE_FAST, REQUEST_TYPE_TRUST, REQUEST_TYPE_ETSI]) {
+for (const id of [REQUEST_TYPE_IDSELF, REQUEST_TYPE_IDSELF_SIGN, REQUEST_TYPE_IDDOCCHECK]) {
   const body = {
     url,
     topics: ['REQUEST_STATUS', 'REQUEST_LIFECYCLE', 'IDENTIFICATION_UPDATE'],

@@ -16,9 +16,9 @@ const NAMIRIAL_BASE_URL = val('NAMIRIAL_BASE_URL', 'https://test-eu-ie1-api.nami
 // URL pública de este servicio, p. ej. https://cofidis-demo.onrender.com
 const PUBLIC_URL = val('PUBLIC_URL');
 // Request types de la demo; se pueden sobrescribir por variable de entorno.
-const REQUEST_TYPE_FAST = val('REQUEST_TYPE_FAST', '2dd9eec0-1def-4a11-9f6c-ec2edd5c08de');
-const REQUEST_TYPE_TRUST = val('REQUEST_TYPE_TRUST', '2fdd662c-6e20-4cf4-a02e-a59c7f74926f');
-const REQUEST_TYPE_ETSI = val('REQUEST_TYPE_ETSI', '4bd2e4a9-7010-4a90-b4e4-912cd6782b22');
+const REQUEST_TYPE_IDSELF = val('REQUEST_TYPE_IDSELF', '3673aa11-3cf8-4fc9-9e3e-1ab22d2d4b41');
+const REQUEST_TYPE_IDSELF_SIGN = val('REQUEST_TYPE_IDSELF_SIGN', 'fec0f3fe-60ac-46f2-a98e-1d457dab49cc');
+const REQUEST_TYPE_IDDOCCHECK = val('REQUEST_TYPE_IDDOCCHECK', 'c54da3e2-4326-4ea5-811c-4f57b5214e65');
 // Opcional: protege la demo con usuario/clave (no afecta a webhooks ni al retorno)
 const BASIC_AUTH_USER = val('BASIC_AUTH_USER');
 const BASIC_AUTH_PASS = val('BASIC_AUTH_PASS');
@@ -33,25 +33,25 @@ const BASE = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 // Los tres botones del menú. Edita nombres y descripciones a tu gusto.
 const FLOWS = [
   {
-    id: 'fast',
-    name: 'ID Self Fast',
-    desc: 'Controles automáticos y prueba de vida pasiva',
-    level: 'Nivel sustancial',
-    requestTypeId: REQUEST_TYPE_FAST,
+    id: 'idself',
+    name: 'ID SELF',
+    desc: 'Verificación de identidad con documento y selfie',
+    level: 'Identidad',
+    requestTypeId: REQUEST_TYPE_IDSELF,
   },
   {
-    id: 'trust',
-    name: 'ID Self Trust',
-    desc: 'Controles automáticos y revisión humana',
-    level: 'Nivel alto',
-    requestTypeId: REQUEST_TYPE_TRUST,
+    id: 'idself-sign',
+    name: 'ID SELF + SIGN',
+    desc: 'Verificación de identidad y firma electrónica',
+    level: 'Identidad y firma',
+    requestTypeId: REQUEST_TYPE_IDSELF_SIGN,
   },
   {
-    id: 'etsi',
-    name: 'ID Self Trust ETSI 119 461',
-    desc: 'Revisión humana y reto activo de prueba de vida',
-    level: 'Certificado ETSI',
-    requestTypeId: REQUEST_TYPE_ETSI,
+    id: 'iddoccheck',
+    name: 'IDDocCheck',
+    desc: 'Verificación del documento de identidad',
+    level: 'Documento',
+    requestTypeId: REQUEST_TYPE_IDDOCCHECK,
   },
 ];
 

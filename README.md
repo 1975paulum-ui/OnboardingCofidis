@@ -22,7 +22,7 @@ La clave de API nunca llega al navegador: la llamada a Namirial la hace el servi
 | `NAMIRIAL_API_KEY` | Token de la API. Va en la cabecera `X-Api-Key` en todas las llamadas |
 | `NAMIRIAL_BASE_URL` | Por defecto `https://test-eu-ie1-api.namirialonboarding.com/api/v2` (servidor de test de la documentación) |
 | `PUBLIC_URL` | URL pública de tu servicio en Render, sin barra final |
-| `REQUEST_TYPE_FAST` / `_TRUST` / `_ETSI` | Opcional. Ya vienen por defecto en `server.js`; solo para sobrescribirlos |
+| `REQUEST_TYPE_IDSELF` / `_IDSELF_SIGN` / `_IDDOCCHECK` | Opcional. Ya vienen por defecto en `server.js`; solo para sobrescribirlos |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | Opcional. Protege la web (no afecta a webhooks ni al retorno) |
 | `WEBHOOK_AUTH_HEADER` / `WEBHOOK_AUTH_VALUE` | Opcional. Cabecera secreta que se valida en los webhooks |
 
