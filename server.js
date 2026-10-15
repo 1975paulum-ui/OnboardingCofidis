@@ -57,6 +57,7 @@ const FLOWS = [
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', true); // Render termina el TLS en su proxy
 app.set('json spaces', 2);
 app.use(express.json({ limit: '1mb' }));
 
@@ -79,6 +80,15 @@ app.use((req, res, next) => {
 });
 
 /* ---------- Utilidades ---------- */
+
+/** Origen público de la demo. Fuera de localhost siempre https (Render redirige http con un 307
+ *  que los emisores de webhooks no siguen). */
+function publicOrigin(req) {
+  const raw = (PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const local = /^https?:\/\/(localhost|127\.|\[::1\])/.test(raw);
+  return local ? raw : raw.replace(/^http:\/\//, 'https://');
+}
+
 const maskKey = (v = '') => (v.length > 6 ? '••••••••' + v.slice(-4) : '••••••••');
 
 const SENSITIVE_HEADERS = new Set([
@@ -203,7 +213,7 @@ app.post('/api/start', async (req, res) => {
     return res.status(500).json({ error: `Falta el requestTypeId del flujo "${flow.name}" en las variables de entorno` });
   }
 
-  const origin = (PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const origin = publicOrigin(req);
   const referenceId = `cofidis-demo-${Date.now()}`;
 
   // Namirial sustituye los marcadores <...> al redirigir al usuario cuando termina.
@@ -260,7 +270,7 @@ app.get('/api/admin/webhooks', adminOnly, async (_req, res) => {
 
 // Registra la URL de esta demo como webhook en los tres request types
 app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
-  const origin = (PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const origin = publicOrigin(req);
   const out = [];
   for (const f of FLOWS) {
     const body = {
@@ -272,6 +282,32 @@ app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
     }
     const { trace } = await callNamirial({ method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
     out.push({ flow: f.name, sent: body, status: trace.response.status, body: trace.response.body });
+  }
+  res.json(out);
+});
+
+// Borra los webhooks de esta demo en los tres request types y los vuelve a crear con la URL https correcta
+app.get('/api/admin/reset-webhooks', adminOnly, async (req, res) => {
+  const origin = publicOrigin(req);
+  const target = `${origin}/webhooks/namirial`;
+  const out = [];
+  for (const f of FLOWS) {
+    const step = { flow: f.name, deleted: [], created: null };
+    const list = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
+    const configs = Array.isArray(list.data?.content) ? list.data.content : [];
+    for (const c of configs) {
+      const id = c.id ?? c.webhookConfigurationId;
+      if (!id || !String(c.url || '').includes('/webhooks/namirial')) continue;
+      const del = await callNamirial({ method: 'DELETE', pathname: `/requestType/${f.requestTypeId}/webhookConfiguration/${id}` });
+      step.deleted.push({ id, url: c.url, status: del.trace.response.status });
+    }
+    const body = { url: target, topics: ['REQUEST_STATUS', 'REQUEST_LIFECYCLE', 'IDENTIFICATION_UPDATE'] };
+    if (WEBHOOK_AUTH_VALUE) {
+      body.authentication = { type: 'CUSTOM_HEADERS', headers: { [WEBHOOK_AUTH_HEADER]: WEBHOOK_AUTH_VALUE } };
+    }
+    const add = await callNamirial({ method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
+    step.created = { url: target, status: add.trace.response.status, body: add.trace.response.body };
+    out.push(step);
   }
   res.json(out);
 });
