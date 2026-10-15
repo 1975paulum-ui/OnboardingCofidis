@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cofidis · Alta de cliente · Demo de verificación de identidad</title>
+<title>Cofidis · Entrée en relation client · Démo de vérification d'identité</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -91,7 +91,7 @@
   .flow .name { font-weight: 700; font-size: 15px; }
   .flow .desc { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
   .flow .level { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--brand-deep); }
-  .flow.busy .name::after { content: " · creando solicitud…"; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+  .flow.busy .name::after { content: " · création de la demande…"; font-weight: 500; color: var(--muted); font-size: 12.5px; }
 
   .banner {
     background: #FFF4E0; border: 1px solid #F1D49B; color: #7A4B00;
@@ -239,42 +239,42 @@
 <header class="top">
   <div class="brand">
     <span class="wordmark">cofidis</span>
-    <span class="sub">Alta de cliente · España</span>
+    <span class="sub">Entrée en relation client · Espagne</span>
   </div>
-  <span class="env">Entorno de pruebas</span>
+  <span class="env">Environnement de test</span>
 </header>
 
 <div class="layout">
   <main class="app">
-    <p class="intro">Elige un tipo de verificación. La web crea la solicitud en Namirial Onboarding y abre aquí mismo el proceso de identificación; a la derecha ves la llamada y los avisos que va devolviendo.</p>
+    <p class="intro">Choisissez un type de vérification. Le site crée la demande dans Namirial Onboarding et ouvre ici même le parcours d'identification ; à droite, vous voyez l'appel effectué et les notifications reçues.</p>
 
     <div class="banner" id="banner" hidden></div>
 
-    <nav class="flows" id="flows" aria-label="Tipo de verificación"></nav>
+    <nav class="flows" id="flows" aria-label="Type de vérification"></nav>
 
     <section class="stage" aria-live="polite">
       <div class="empty" id="empty">
-        <strong>Todavía no hay ninguna verificación en marcha</strong>
-        Cuando elijas un flujo, el proceso del cliente aparecerá en este espacio.
+        <strong>Aucune vérification en cours</strong>
+        Dès que vous choisirez un parcours, le processus client s'affichera ici.
       </div>
       <div class="frame" id="frame" hidden>
         <div class="frame-bar">
           <span class="frame-url" id="frameUrl"></span>
-          <a class="link-btn" id="frameOpen" target="_blank" rel="noopener">Abrir en pestaña nueva</a>
-          <button class="link-btn" id="frameClose" type="button">Cerrar</button>
+          <a class="link-btn" id="frameOpen" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a>
+          <button class="link-btn" id="frameClose" type="button">Fermer</button>
         </div>
-        <iframe id="iframe" title="Proceso de verificación de identidad"
+        <iframe id="iframe" title="Processus de vérification d'identité"
                 allow="camera *; microphone *; fullscreen *; geolocation *; clipboard-write *"></iframe>
       </div>
     </section>
   </main>
 
-  <aside class="console" aria-label="Consola de integración">
+  <aside class="console" aria-label="Console d'intégration">
     <div class="con-head">
-      <h2>Consola de integración</h2>
+      <h2>Console d'intégration</h2>
       <div class="con-actions">
-        <button class="cbtn" id="btnStatus" type="button" disabled>Consultar estado</button>
-        <button class="cbtn" id="btnClear" type="button">Limpiar</button>
+        <button class="cbtn" id="btnStatus" type="button" disabled>Consulter le statut</button>
+        <button class="cbtn" id="btnClear" type="button">Effacer</button>
       </div>
     </div>
 
@@ -290,12 +290,12 @@
 /* ============ Utilidades ============ */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour12: false });
+const clock = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour12: false });
 const bytes = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
 
 function hl(v) {
   const s = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
-  if (s === undefined || s === null || s === '') return '<span class="muted">(vacío)</span>';
+  if (s === undefined || s === null || s === '') return '<span class="muted">(vide)</span>';
   const re = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g;
   let out = '', last = 0, m;
   while ((m = re.exec(s))) {
@@ -310,7 +310,7 @@ function hl(v) {
 
 function kvTable(obj) {
   const rows = Object.entries(obj || {});
-  if (!rows.length) return '<p class="hint">Sin datos.</p>';
+  if (!rows.length) return '<p class="hint">Aucune donnée.</p>';
   return `<table class="kv">${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</td></tr>`).join('')}</table>`;
 }
 
@@ -347,7 +347,7 @@ async function loadFlows() {
   const banner = $('#banner');
   if (!d.configured) {
     banner.hidden = false;
-    banner.textContent = 'El servidor no tiene definida la clave de API de Namirial (NAMIRIAL_API_KEY). Los botones no podrán crear solicitudes hasta que la añadas.';
+    banner.textContent = 'Le serveur n’a pas de clé d’API Namirial (NAMIRIAL_API_KEY). Les boutons ne pourront pas créer de demandes tant qu’elle n’est pas ajoutée.';
   }
   renderFlows();
 }
@@ -356,7 +356,7 @@ function renderFlows(busyId) {
   $('#flows').innerHTML = state.flows.map((f) => `
     <button class="flow ${busyId === f.id ? 'busy' : ''}" data-flow="${f.id}" type="button"
             aria-pressed="${state.activeFlow === f.id}" ${f.ready && !busyId ? '' : 'disabled'}
-            ${f.ready ? '' : 'title="Falta el requestTypeId de este flujo en el servidor"'}>
+            ${f.ready ? '' : 'title="Le requestTypeId de ce parcours n’est pas configuré sur le serveur"'}>
       <span class="name">${esc(f.name)}</span>
       <span class="desc">${esc(f.desc)}</span>
       <span class="level">${esc(f.level)}</span>
@@ -381,10 +381,10 @@ async function startFlow(id) {
       $('#btnStatus').disabled = !d.requestId;
       openFrame(d.link);
     } else if (!d.error) {
-      showError('Namirial no devolvió un enlace. Revisa la respuesta en la consola.');
+      showError('Namirial n’a pas renvoyé de lien. Consultez la réponse dans la console.');
     }
   } catch (e) {
-    showError('No se pudo contactar con el servidor de la demo.');
+    showError('Impossible de joindre le serveur de la démo.');
   }
   renderFlows();
   renderWebhooks();
@@ -393,7 +393,7 @@ async function startFlow(id) {
 function showError(msg) {
   const el = $('#empty');
   el.hidden = false;
-  el.innerHTML = `<strong>No se pudo iniciar la verificación</strong>${esc(msg)}`;
+  el.innerHTML = `<strong>Impossible de démarrer la vérification</strong>${esc(msg)}`;
 }
 
 function openFrame(link) {
@@ -409,7 +409,7 @@ function closeFrame() {
   $('#iframe').src = 'about:blank';
   const el = $('#empty');
   el.hidden = false;
-  el.innerHTML = '<strong>Todavía no hay ninguna verificación en marcha</strong>Cuando elijas un flujo, el proceso del cliente aparecerá en este espacio.';
+  el.innerHTML = '<strong>Aucune vérification en cours</strong>Dès que vous choisirez un parcours, le processus client s’affichera ici.';
 }
 
 /* ============ Consola: llamadas ============ */
@@ -434,8 +434,8 @@ function renderApi() {
   const pane = $('#apiPane');
   const c = state.calls.find((x) => x.id === state.selected);
   if (!c) {
-    pane.innerHTML = `<div class="pane-title"><h3>Llamada y respuesta</h3></div>
-      <p class="hint">Al elegir un flujo verás aquí la llamada exacta que el servidor hace a la API de Namirial Onboarding: dirección, cabeceras, parámetros y respuesta.</p>`;
+    pane.innerHTML = `<div class="pane-title"><h3>Appel et réponse</h3></div>
+      <p class="hint">Lorsque vous choisissez un parcours, vous voyez ici l'appel exact que le serveur envoie à l'API Namirial Onboarding : adresse, en-têtes, paramètres et réponse.</p>`;
     return;
   }
   const q = c.request.query || {};
@@ -454,7 +454,7 @@ function renderApi() {
     `<button class="tab" role="tab" data-group="${group}" data-tab="${key}" aria-selected="${state[group + 'Tab'] === key}">${label}${n != null ? `<span class="n">${n}</span>` : ''}</button>`;
 
   pane.innerHTML = `
-    <div class="pane-title"><h3>Llamada</h3><button class="cbtn" id="btnCurl" type="button">Copiar cURL</button></div>
+    <div class="pane-title"><h3>Appel</h3><button class="cbtn" id="btnCurl" type="button">Copier le cURL</button></div>
     <div class="reqbar"><span class="m ${c.request.method}">${c.request.method}</span><span class="u">${esc(c.request.url)}</span></div>
     <div class="tabs" role="tablist">
       ${tab('req', 'params', 'Params', Object.keys(q).length)}
@@ -464,8 +464,8 @@ function renderApi() {
     ${reqPane}
 
     <div class="pane-title" style="margin-top:18px">
-      <h3>Respuesta</h3>
-      <span class="status"><span class="st ${cls}">${res.status || 'Error'} ${esc(res.statusText || '')}</span><span class="muted">${res.ms} ms</span><span class="muted">${bytes(res.size)}</span></span>
+      <h3>Réponse</h3>
+      <span class="status"><span class="st ${cls}">${res.status || 'Erreur'} ${esc(res.statusText || '')}</span><span class="muted">${res.ms} ms</span><span class="muted">${bytes(res.size)}</span></span>
     </div>
     <div class="tabs" role="tablist">
       ${tab('res', 'body', 'Body')}
@@ -481,7 +481,7 @@ function mentionsRequest(e, reqId) {
 }
 
 function badgeFor(e) {
-  if (e.source === 'return') return `<span class="badge ret">retorno del usuario</span>`;
+  if (e.source === 'return') return `<span class="badge ret">retour de l'utilisateur</span>`;
   const st = (e.body?.request?.status || '').toUpperCase();
   if (!st) return '';
   const good = ['COMPLETED', 'APPROVED', 'ACCEPTED', 'FINALIZED'];
@@ -513,14 +513,14 @@ function renderWebhooks() {
 
   pane.innerHTML = `
     <div class="pane-title">
-      <h3>Webhooks recibidos <span class="muted">(${list.length})</span></h3>
-      <span class="live"><span class="dot ${state.live ? 'on' : ''}"></span>${state.live ? 'Escuchando' : 'Reconectando…'}</span>
+      <h3>Webhooks reçus <span class="muted">(${list.length})</span></h3>
+      <span class="live"><span class="dot ${state.live ? 'on' : ''}"></span>${state.live ? 'En écoute' : 'Reconnexion…'}</span>
     </div>
     <div class="wh-tools" style="margin-bottom:10px">
-      <label><input type="checkbox" id="chkAll" ${state.showAll ? 'checked' : ''}> Mostrar también de otras solicitudes${hidden > 0 && !state.showAll ? ` (${hidden} ocultos)` : ''}</label>
+      <label><input type="checkbox" id="chkAll" ${state.showAll ? 'checked' : ''}> Afficher aussi les autres demandes${hidden > 0 && !state.showAll ? ` (${hidden} masqués)` : ''}</label>
     </div>
     ${items ? `<ul class="wh-list">${items}</ul>` :
-      `<p class="hint">Aquí irán apareciendo los avisos que Namirial envía a esta web cada vez que cambia el estado de la solicitud.</p>`}`;
+      `<p class="hint">Les notifications envoyées par Namirial à ce site s'afficheront ici à chaque changement de statut de la demande.</p>`}`;
 }
 
 function pushEvent(e, fresh) {
@@ -580,7 +580,7 @@ document.addEventListener('click', async (e) => {
 
   if (e.target.id === 'btnCurl') {
     const c = state.calls.find((x) => x.id === state.selected);
-    if (c) { await navigator.clipboard.writeText(toCurl(c)); e.target.textContent = 'Copiado'; setTimeout(() => (e.target.textContent = 'Copiar cURL'), 1500); }
+    if (c) { await navigator.clipboard.writeText(toCurl(c)); e.target.textContent = 'Copié'; setTimeout(() => (e.target.textContent = 'Copier le cURL'), 1500); }
     return;
   }
 

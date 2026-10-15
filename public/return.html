@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verificación finalizada</title>
+<title>Vérification terminée</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
@@ -47,8 +47,8 @@
 <body>
 <main>
   <div class="mark" id="mark">✓</div>
-  <h1 id="title">Hemos recibido tu verificación</h1>
-  <p id="text">Ya puedes cerrar esta pantalla. Te avisaremos cuando termine la revisión.</p>
+  <h1 id="title">Nous avons bien reçu votre vérification</h1>
+  <p id="text">Vous pouvez fermer cet écran. Nous vous préviendrons lorsque l'examen sera terminé.</p>
   <p class="ref" id="ref"></p>
 </main>
 <script>
@@ -62,20 +62,20 @@
   if (['REJECTED', 'FAILED', 'ERROR', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(status)) {
     mark.textContent = '!';
     mark.className = 'mark bad';
-    title.textContent = 'No hemos podido completar la verificación';
-    text.textContent = 'Puedes volver a intentarlo desde el principio.';
+    title.textContent = 'Nous n’avons pas pu finaliser la vérification';
+    text.textContent = 'Vous pouvez réessayer depuis le début.';
   } else if (['ABORTED', 'INCOMPLETE'].includes(status)) {
     mark.textContent = '!';
     mark.className = 'mark warn';
-    title.textContent = 'La verificación quedó a medias';
-    text.textContent = 'Puedes retomarla cuando quieras.';
+    title.textContent = 'La vérification est restée incomplète';
+    text.textContent = 'Vous pouvez la reprendre quand vous le souhaitez.';
   } else if (['RUNNING', 'PENDING', 'WAITING', 'IN_REVIEW'].includes(status)) {
-    title.textContent = 'Tu verificación está en revisión';
-    text.textContent = 'Un operador la revisará. No necesitas hacer nada más.';
+    title.textContent = 'Votre vérification est en cours d’examen';
+    text.textContent = 'Un opérateur va l’examiner. Vous n’avez rien d’autre à faire.';
   }
 
   document.getElementById('ref').innerHTML = status
-    ? 'Estado: <code>' + status.replace(/[<>&]/g, '') + '</code>'
+    ? 'Statut : <code>' + status.replace(/[<>&]/g, '') + '</code>'
     : '';
 
   // Avisamos a la web de la demo para que muestre el retorno en la consola

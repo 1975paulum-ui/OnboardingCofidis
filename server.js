@@ -35,22 +35,22 @@ const FLOWS = [
   {
     id: 'idself',
     name: 'ID SELF',
-    desc: 'Verificación de identidad con documento y selfie',
-    level: 'Identidad',
+    desc: "Vérification d'identité avec pièce d'identité et selfie",
+    level: 'Identité',
     requestTypeId: REQUEST_TYPE_IDSELF,
   },
   {
     id: 'idself-sign',
     name: 'ID SELF + SIGN',
-    desc: 'Verificación de identidad y firma electrónica',
-    level: 'Identidad y firma',
+    desc: "Vérification d'identité et signature électronique",
+    level: 'Identité et signature',
     requestTypeId: REQUEST_TYPE_IDSELF_SIGN,
   },
   {
     id: 'iddoccheck',
     name: 'IDDocCheck',
-    desc: 'Verificación del documento de identidad',
-    level: 'Documento',
+    desc: "Vérification de la pièce d'identité",
+    level: 'Document',
     requestTypeId: REQUEST_TYPE_IDDOCCHECK,
   },
 ];
@@ -76,7 +76,7 @@ app.use((req, res, next) => {
     if (u === BASIC_AUTH_USER && rest.join(':') === BASIC_AUTH_PASS) return next();
   }
   res.set('WWW-Authenticate', 'Basic realm="Cofidis demo"');
-  res.status(401).send('Acceso restringido');
+  res.status(401).send('Accès restreint');
 });
 
 /* ---------- Utilidades ---------- */
@@ -160,12 +160,12 @@ async function callNamirial({ method, pathname, query = {}, body }) {
   } catch (err) {
     trace.response = {
       status: 0,
-      statusText: 'Sin respuesta',
+      statusText: 'Aucune réponse',
       ms: Math.round(performance.now() - started),
       size: 0,
       headers: {},
       body: {
-        error: err.name === 'TimeoutError' ? 'Tiempo de espera agotado' : String(err.message || err),
+        error: err.name === 'TimeoutError' ? 'Délai d\'attente dépassé' : String(err.message || err),
         // Node esconde el motivo real (DNS, TLS, conexión rechazada…) en `cause`
         cause: err.cause ? String(err.cause.code || err.cause.message || err.cause) : undefined,
         host: new URL(url).host,
@@ -207,10 +207,10 @@ app.get('/api/ping', async (_req, res) => {
 
 app.post('/api/start', async (req, res) => {
   const flow = FLOWS.find((f) => f.id === req.body?.flowId);
-  if (!flow) return res.status(400).json({ error: 'Flujo desconocido' });
-  if (!NAMIRIAL_API_KEY) return res.status(500).json({ error: 'Falta NAMIRIAL_API_KEY en el servidor' });
+  if (!flow) return res.status(400).json({ error: 'Parcours inconnu' });
+  if (!NAMIRIAL_API_KEY) return res.status(500).json({ error: 'NAMIRIAL_API_KEY est absente sur le serveur' });
   if (!flow.requestTypeId) {
-    return res.status(500).json({ error: `Falta el requestTypeId del flujo "${flow.name}" en las variables de entorno` });
+    return res.status(500).json({ error: `Le requestTypeId du parcours « ${flow.name} » est absent des variables d'environnement` });
   }
 
   const origin = publicOrigin(req);
@@ -243,7 +243,7 @@ app.post('/api/start', async (req, res) => {
 
 app.post('/api/status', async (req, res) => {
   const requestId = String(req.body?.requestId || '');
-  if (!/^[0-9a-fA-F-]{8,64}$/.test(requestId)) return res.status(400).json({ error: 'requestId no válido' });
+  if (!/^[0-9a-fA-F-]{8,64}$/.test(requestId)) return res.status(400).json({ error: 'requestId invalide' });
   const { ok, data, trace } = await callNamirial({
     method: 'GET',
     pathname: `/request/${requestId}`,
