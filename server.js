@@ -27,6 +27,10 @@ const WEBHOOK_AUTH_HEADER = val('WEBHOOK_AUTH_HEADER', 'x-webhook-secret');
 const WEBHOOK_AUTH_VALUE = val('WEBHOOK_AUTH_VALUE');
 // Opcional: activa las rutas de administración (/api/admin/...) protegidas por ?token=
 const ADMIN_TOKEN = val('ADMIN_TOKEN');
+// Datos de contacto que exige el flujo con firma (certificado de un solo uso).
+// Namirial enviará ahí los códigos de verificación: pon un correo y un móvil a los que tengas acceso.
+const DEMO_EMAIL = val('DEMO_EMAIL');
+const DEMO_PHONE_NUMBER = val('DEMO_PHONE_NUMBER'); // formato internacional, p. ej. +34600111222
 
 const BASE = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 
@@ -44,6 +48,7 @@ const FLOWS = [
     name: 'ID SELF + SIGN',
     desc: "Vérification d'identité et signature électronique",
     level: 'Identité et signature',
+    sendContact: true, // envía email y phoneNumber en `parameters`
     requestTypeId: REQUEST_TYPE_IDSELF_SIGN,
   },
   {
@@ -221,15 +226,23 @@ app.post('/api/start', async (req, res) => {
     `${origin}/return?requestId=<requestId>&referenceId=<referenceId>` +
     `&status=<status>&requestTypeId=<requestTypeId>&actor=<actor>`;
 
+  const requestBody = {
+    requestTypeId: flow.requestTypeId,
+    referenceId,
+    settings: { wizardUrlBack },
+  };
+  if (flow.sendContact) {
+    const parameters = {};
+    if (DEMO_EMAIL) parameters.email = DEMO_EMAIL;
+    if (DEMO_PHONE_NUMBER) parameters.phoneNumber = DEMO_PHONE_NUMBER;
+    if (Object.keys(parameters).length) requestBody.parameters = parameters;
+  }
+
   const { ok, data, trace } = await callNamirial({
     method: 'POST',
     pathname: '/requests',
     query: { idempotencyKey: crypto.randomUUID() },
-    body: {
-      requestTypeId: flow.requestTypeId,
-      referenceId,
-      settings: { wizardUrlBack },
-    },
+    body: requestBody,
   });
 
   res.json({

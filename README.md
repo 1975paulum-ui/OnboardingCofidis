@@ -25,6 +25,7 @@ La clave de API nunca llega al navegador: la llamada a Namirial la hace el servi
 | `REQUEST_TYPE_IDSELF` / `_IDSELF_SIGN` / `_IDDOCCHECK` | Opcional. Ya vienen por defecto en `server.js`; solo para sobrescribirlos |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | Opcional. Protege la web (no afecta a webhooks ni al retorno) |
 | `WEBHOOK_AUTH_HEADER` / `WEBHOOK_AUTH_VALUE` | Opcional. Cabecera secreta que se valida en los webhooks |
+| `DEMO_EMAIL` / `DEMO_PHONE_NUMBER` | Contacto del firmante en el flujo ID SELF + SIGN (`parameters.email` y `parameters.phoneNumber`). El teléfono en formato internacional, p. ej. `+34600111222` |
 
 Para probar en local: `npm install && node --env-file=.env server.js`.
 

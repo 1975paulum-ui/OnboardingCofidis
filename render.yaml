@@ -23,3 +23,7 @@ services:
         value: x-webhook-secret
       - key: WEBHOOK_AUTH_VALUE
         sync: false
+      - key: DEMO_EMAIL
+        sync: false
+      - key: DEMO_PHONE_NUMBER
+        sync: false
