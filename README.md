@@ -26,6 +26,7 @@ La clave de API nunca llega al navegador: la llamada a Namirial la hace el servi
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | Opcional. Protege la web (no afecta a webhooks ni al retorno) |
 | `WEBHOOK_AUTH_HEADER` / `WEBHOOK_AUTH_VALUE` | Opcional. Cabecera secreta que se valida en los webhooks |
 | `DEMO_EMAIL` / `DEMO_PHONE_NUMBER` | Contacto del firmante en el flujo ID SELF + SIGN (`parameters.email` y `parameters.phoneNumber`). El teléfono en formato internacional, p. ej. `+34600111222` |
+| `NAMIRIAL_LANGUAGE` | Idioma del asistente (parámetro de consulta `language` de `POST /requests`). Por defecto `fr`; la documentación no lista los valores válidos, así que si no surte efecto prueba `fr-FR` |
 
 Para probar en local: `npm install && node --env-file=.env server.js`.
 

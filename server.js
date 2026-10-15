@@ -29,6 +29,9 @@ const WEBHOOK_AUTH_VALUE = val('WEBHOOK_AUTH_VALUE');
 const ADMIN_TOKEN = val('ADMIN_TOKEN');
 // Datos de contacto que exige el flujo con firma (certificado de un solo uso).
 // Namirial enviará ahí los códigos de verificación: pon un correo y un móvil a los que tengas acceso.
+// Idioma del asistente de Namirial: parámetro `language` de POST /requests.
+// La documentación no indica los valores admitidos; se prueba con 'fr' (alternativas: 'fr-FR', 'FR').
+const NAMIRIAL_LANGUAGE = val('NAMIRIAL_LANGUAGE', 'fr');
 const DEMO_EMAIL = val('DEMO_EMAIL');
 const DEMO_PHONE_NUMBER = val('DEMO_PHONE_NUMBER'); // formato internacional, p. ej. +34600111222
 
@@ -241,7 +244,7 @@ app.post('/api/start', async (req, res) => {
   const { ok, data, trace } = await callNamirial({
     method: 'POST',
     pathname: '/requests',
-    query: { idempotencyKey: crypto.randomUUID() },
+    query: { idempotencyKey: crypto.randomUUID(), language: NAMIRIAL_LANGUAGE },
     body: requestBody,
   });
 
