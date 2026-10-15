@@ -5,24 +5,28 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const {
-  PORT = 3000,
-  NAMIRIAL_API_KEY,
-  // Servidor de test que figura en la documentación (OpenAPI 2.0.0)
-  NAMIRIAL_BASE_URL = 'https://test-eu-ie1-api.namirialonboarding.com/api/v2',
-  // URL pública de este servicio, p. ej. https://cofidis-demo.onrender.com
-  PUBLIC_URL,
-  // Por defecto, los request types de la demo. Se pueden sobrescribir por variable de entorno.
-  REQUEST_TYPE_FAST = '2dd9eec0-1def-4a11-9f6c-ec2edd5c08de',
-  REQUEST_TYPE_TRUST = '2fdd662c-6e20-4cf4-a02e-a59c7f74926f',
-  REQUEST_TYPE_ETSI = '4bd2e4a9-7010-4a90-b4e4-912cd6782b22',
-  // Opcional: protege la demo con usuario/clave (no afecta a webhooks ni al retorno)
-  BASIC_AUTH_USER,
-  BASIC_AUTH_PASS,
-  // Opcional: cabecera que Namirial enviará en los webhooks y que validamos
-  WEBHOOK_AUTH_HEADER = 'x-webhook-secret',
-  WEBHOOK_AUTH_VALUE,
-} = process.env;
+const env = process.env;
+// Una variable vacía (Render las crea en blanco) cuenta como no definida.
+const val = (name, fallback) => (env[name] && env[name].trim() ? env[name].trim() : fallback);
+
+const PORT = val('PORT', 3000);
+const NAMIRIAL_API_KEY = val('NAMIRIAL_API_KEY');
+// Servidor de test que figura en la documentación (OpenAPI 2.0.0)
+const NAMIRIAL_BASE_URL = val('NAMIRIAL_BASE_URL', 'https://test-eu-ie1-api.namirialonboarding.com/api/v2');
+// URL pública de este servicio, p. ej. https://cofidis-demo.onrender.com
+const PUBLIC_URL = val('PUBLIC_URL');
+// Request types de la demo; se pueden sobrescribir por variable de entorno.
+const REQUEST_TYPE_FAST = val('REQUEST_TYPE_FAST', '2dd9eec0-1def-4a11-9f6c-ec2edd5c08de');
+const REQUEST_TYPE_TRUST = val('REQUEST_TYPE_TRUST', '2fdd662c-6e20-4cf4-a02e-a59c7f74926f');
+const REQUEST_TYPE_ETSI = val('REQUEST_TYPE_ETSI', '4bd2e4a9-7010-4a90-b4e4-912cd6782b22');
+// Opcional: protege la demo con usuario/clave (no afecta a webhooks ni al retorno)
+const BASIC_AUTH_USER = val('BASIC_AUTH_USER');
+const BASIC_AUTH_PASS = val('BASIC_AUTH_PASS');
+// Opcional: cabecera que Namirial enviará en los webhooks y que validamos
+const WEBHOOK_AUTH_HEADER = val('WEBHOOK_AUTH_HEADER', 'x-webhook-secret');
+const WEBHOOK_AUTH_VALUE = val('WEBHOOK_AUTH_VALUE');
+// Opcional: activa las rutas de administración (/api/admin/...) protegidas por ?token=
+const ADMIN_TOKEN = val('ADMIN_TOKEN');
 
 const BASE = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 
@@ -53,6 +57,7 @@ const FLOWS = [
 
 const app = express();
 app.disable('x-powered-by');
+app.set('json spaces', 2);
 app.use(express.json({ limit: '1mb' }));
 
 /* ---------- Protección opcional con Basic Auth ---------- */
@@ -149,7 +154,12 @@ async function callNamirial({ method, pathname, query = {}, body }) {
       ms: Math.round(performance.now() - started),
       size: 0,
       headers: {},
-      body: { error: err.name === 'TimeoutError' ? 'Tiempo de espera agotado' : String(err.message || err) },
+      body: {
+        error: err.name === 'TimeoutError' ? 'Tiempo de espera agotado' : String(err.message || err),
+        // Node esconde el motivo real (DNS, TLS, conexión rechazada…) en `cause`
+        cause: err.cause ? String(err.cause.code || err.cause.message || err.cause) : undefined,
+        host: new URL(url).host,
+      },
     };
     return { ok: false, data: null, trace };
   }
@@ -168,6 +178,7 @@ app.get('/api/flows', (_req, res) => {
   res.json({
     configured: Boolean(NAMIRIAL_API_KEY),
     publicUrl: PUBLIC_URL || null,
+    baseUrl: BASE,
     flows: FLOWS.map(({ id, name, desc, level, requestTypeId }) => ({
       id,
       name,
@@ -176,6 +187,12 @@ app.get('/api/flows', (_req, res) => {
       ready: Boolean(requestTypeId),
     })),
   });
+});
+
+// Diagnóstico: GET /info/version es público y no necesita clave.
+app.get('/api/ping', async (_req, res) => {
+  const { ok, trace } = await callNamirial({ method: 'GET', pathname: '/info/version' });
+  res.json({ ok, baseUrl: BASE, response: trace.response });
 });
 
 app.post('/api/start', async (req, res) => {
@@ -224,6 +241,41 @@ app.post('/api/status', async (req, res) => {
   res.json({ ok, data, trace });
 });
 
+/* ---------- Administración de webhooks desde el navegador ---------- */
+function adminOnly(req, res, next) {
+  if (!ADMIN_TOKEN) return res.status(404).json({ error: 'Rutas de administración desactivadas (falta ADMIN_TOKEN)' });
+  if (req.query.token !== ADMIN_TOKEN) return res.status(401).json({ error: 'token incorrecto' });
+  next();
+}
+
+// Lista los webhooks registrados en cada request type
+app.get('/api/admin/webhooks', adminOnly, async (_req, res) => {
+  const out = [];
+  for (const f of FLOWS) {
+    const { trace } = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
+    out.push({ flow: f.name, requestTypeId: f.requestTypeId, status: trace.response.status, body: trace.response.body });
+  }
+  res.json(out);
+});
+
+// Registra la URL de esta demo como webhook en los tres request types
+app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
+  const origin = (PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+  const out = [];
+  for (const f of FLOWS) {
+    const body = {
+      url: `${origin}/webhooks/namirial`,
+      topics: ['REQUEST_STATUS', 'REQUEST_LIFECYCLE', 'IDENTIFICATION_UPDATE'],
+    };
+    if (WEBHOOK_AUTH_VALUE) {
+      body.authentication = { type: 'CUSTOM_HEADERS', headers: { [WEBHOOK_AUTH_HEADER]: WEBHOOK_AUTH_VALUE } };
+    }
+    const { trace } = await callNamirial({ method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
+    out.push({ flow: f.name, sent: body, status: trace.response.status, body: trace.response.body });
+  }
+  res.json(out);
+});
+
 /* ---------- Webhooks entrantes + SSE ---------- */
 const buffer = []; // últimos eventos en memoria
 const MAX_BUFFER = 300;
@@ -237,6 +289,10 @@ function publish(event) {
 }
 
 app.post('/webhooks/namirial', (req, res) => {
+  console.log(
+    `[webhook] recibido type=${req.body?.type ?? '?'} requestId=${req.body?.request?.requestId ?? '?'} ` +
+      `status=${req.body?.request?.status ?? '?'} auth=${WEBHOOK_AUTH_VALUE ? 'requerida' : 'no requerida'}`
+  );
   if (WEBHOOK_AUTH_VALUE) {
     const got = req.get(WEBHOOK_AUTH_HEADER);
     if (got !== WEBHOOK_AUTH_VALUE) {
