@@ -76,6 +76,8 @@ const I18N = {
 
     "adm.targetsTitle": "Parcours concernés",
     "adm.targetsHelp": "Les actions des sections suivantes s’appliquent aux request types cochés.",
+    "adm.srcEnv": "variable d’environnement",
+    "adm.srcDefault": "valeur par défaut",
     "adm.needFlow": "Cochez au moins un parcours.",
     "adm.needTopic": "Cochez au moins un thème (topic).",
 
@@ -256,6 +258,8 @@ const I18N = {
 
     "adm.targetsTitle": "Flujos afectados",
     "adm.targetsHelp": "Las acciones de las secciones siguientes se aplican a los request types marcados.",
+    "adm.srcEnv": "variable de entorno",
+    "adm.srcDefault": "valor por defecto",
     "adm.needFlow": "Marca al menos un flujo.",
     "adm.needTopic": "Marca al menos un tema (topic).",
 
@@ -436,6 +440,8 @@ const I18N = {
 
     "adm.targetsTitle": "Flows concerned",
     "adm.targetsHelp": "The actions in the following sections apply to the checked request types.",
+    "adm.srcEnv": "environment variable",
+    "adm.srcDefault": "default value",
     "adm.needFlow": "Check at least one flow.",
     "adm.needTopic": "Check at least one topic.",
 

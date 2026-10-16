@@ -253,7 +253,7 @@ function renderTargets() {
   $('#targets').innerHTML = A.cfg.flows.map((f) => `
     <label class="target">
       <input type="checkbox" data-target="${esc(f.requestTypeId)}" ${A.targets.has(f.requestTypeId) ? 'checked' : ''}>
-      <span><strong>${esc(f.name)}</strong><br><small>${esc(shortId(f.requestTypeId))}</small></span>
+      <span><strong>${esc(f.name)}</strong> ${pill(f.source === 'env' ? 'ok' : 'warn', t(f.source === 'env' ? 'adm.srcEnv' : 'adm.srcDefault'))}<br><small>${esc(f.requestTypeId)}</small><br><small>${esc(f.envVar || '')}</small></span>
     </label>`).join('');
 }
 
@@ -528,7 +528,7 @@ $('#tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unl
 
 /* ============ Idioma ============ */
 document.addEventListener('langchange', () => {
-  if (A.cfg) { fillConfig(); renderInfo(); renderHooks(); renderReqTable(); }
+  if (A.cfg) { renderTargets(); fillConfig(); renderInfo(); renderHooks(); renderReqTable(); }
   renderApi();
   renderWebhooks();
 });

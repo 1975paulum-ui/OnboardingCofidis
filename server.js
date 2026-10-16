@@ -7,7 +7,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const env = process.env;
 // Una variable vacía (Render las crea en blanco) cuenta como no definida.
-const val = (name, fallback) => (env[name] && env[name].trim() ? env[name].trim() : fallback);
+// Quita espacios y comillas que a veces se pegan sin querer alrededor del valor
+const clean = (v) => String(v ?? '').trim().replace(/^(["'])(.*)\1$/, '$2').trim();
+const val = (name, fallback) => clean(env[name]) || fallback;
 
 const PORT = val('PORT', 3000);
 const NAMIRIAL_API_KEY = val('NAMIRIAL_API_KEY');
@@ -52,6 +54,7 @@ const FLOWS = [
     name: 'ID SELF',
     desc: "Vérification d'identité avec pièce d'identité et selfie",
     level: 'Identité',
+    envVar: 'REQUEST_TYPE_IDSELF',
     requestTypeId: REQUEST_TYPE_IDSELF,
   },
   {
@@ -60,6 +63,7 @@ const FLOWS = [
     desc: "Vérification d'identité et signature électronique",
     level: 'Identité et signature',
     sendContact: true, // envía email y phoneNumber en `parameters`
+    envVar: 'REQUEST_TYPE_IDSELF_SIGN',
     requestTypeId: REQUEST_TYPE_IDSELF_SIGN,
   },
   {
@@ -67,9 +71,13 @@ const FLOWS = [
     name: 'IDDocCheck',
     desc: "Vérification de la pièce d'identité",
     level: 'Document',
+    envVar: 'REQUEST_TYPE_IDDOCCHECK',
     requestTypeId: REQUEST_TYPE_IDDOCCHECK,
   },
 ];
+
+// De dónde sale el id de cada flujo: de la variable de entorno o del valor por defecto del código
+const idSource = (f) => (clean(env[f.envVar]) ? 'env' : 'default');
 
 const app = express();
 app.disable('x-powered-by');
@@ -324,7 +332,7 @@ app.get('/api/admin/config', adminOnly, (req, res) => {
     webhookAuth: { enabled: Boolean(WEBHOOK_AUTH_VALUE), header: WEBHOOK_AUTH_HEADER, placeholder: SECRET_PLACEHOLDER },
     hasApiKey: Boolean(NAMIRIAL_API_KEY),
     basicAuth: Boolean(BASIC_AUTH_USER),
-    flows: FLOWS.map((f) => ({ id: f.id, name: f.name, requestTypeId: f.requestTypeId })),
+    flows: FLOWS.map((f) => ({ id: f.id, name: f.name, requestTypeId: f.requestTypeId, envVar: f.envVar, source: idSource(f) })),
     current: eff,
     defaults: { language: NAMIRIAL_LANGUAGE, email: DEMO_EMAIL || '', phone: DEMO_PHONE_NUMBER || '' },
     overridden: Object.keys(runtime),
@@ -530,4 +538,15 @@ app.listen(PORT, () => {
   console.log(`Demo Cofidis escuchando en :${PORT}`);
   console.log(`API Namirial: ${BASE}`);
   if (!NAMIRIAL_API_KEY) console.warn('Aviso: NAMIRIAL_API_KEY no está definida');
+
+  // Qué id usa cada botón y de dónde sale (útil para comprobar las variables de Render)
+  for (const f of FLOWS) {
+    console.log(`[config] ${f.name}: ${f.requestTypeId}  (${idSource(f) === 'env' ? 'variable ' + f.envVar : 'valor por defecto; no hay ' + f.envVar})`);
+  }
+  const known = new Set(FLOWS.map((f) => f.envVar));
+  for (const k of Object.keys(env)) {
+    if (/^REQUEST_?TYPE/i.test(k) && !known.has(k)) {
+      console.warn(`[config] Variable ${k} ignorada. Nombres válidos: ${[...known].join(', ')}`);
+    }
+  }
 });
