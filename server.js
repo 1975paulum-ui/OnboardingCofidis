@@ -35,6 +35,14 @@ const NAMIRIAL_LANGUAGE = val('NAMIRIAL_LANGUAGE', 'fr');
 const DEMO_EMAIL = val('DEMO_EMAIL');
 const DEMO_PHONE_NUMBER = val('DEMO_PHONE_NUMBER'); // formato internacional, p. ej. +34600111222
 
+// Cambios hechos desde la página de administración. Viven en memoria y se pierden al reiniciar.
+const runtime = {};
+const effective = () => ({
+  language: runtime.language || NAMIRIAL_LANGUAGE,
+  email: 'email' in runtime ? runtime.email : DEMO_EMAIL,
+  phone: 'phone' in runtime ? runtime.phone : DEMO_PHONE_NUMBER,
+});
+
 const BASE = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 
 // Los tres botones del menú. Edita nombres y descripciones a tu gusto.
@@ -119,7 +127,7 @@ function safeHeaders(headers) {
  * Llama a la API de Namirial y devuelve, junto al resultado, una "traza"
  * estilo Postman (petición enviada + respuesta recibida) para mostrarla en la web.
  */
-async function callNamirial({ method, pathname, query = {}, body }) {
+async function callNamirial({ method, pathname, query = {}, body, traceBody }) {
   const qs = new URLSearchParams(query).toString();
   const url = `${BASE}${pathname}${qs ? `?${qs}` : ''}`;
   const headers = {
@@ -136,7 +144,7 @@ async function callNamirial({ method, pathname, query = {}, body }) {
       url,
       query,
       headers: safeHeaders(headers),
-      body: body ?? null,
+      body: (traceBody !== undefined ? traceBody : body) ?? null,
     },
     response: null,
   };
@@ -236,15 +244,16 @@ app.post('/api/start', async (req, res) => {
   };
   if (flow.sendContact) {
     const parameters = {};
-    if (DEMO_EMAIL) parameters.email = DEMO_EMAIL;
-    if (DEMO_PHONE_NUMBER) parameters.phoneNumber = DEMO_PHONE_NUMBER;
+    const { email, phone } = effective();
+    if (email) parameters.email = email;
+    if (phone) parameters.phoneNumber = phone;
     if (Object.keys(parameters).length) requestBody.parameters = parameters;
   }
 
   const { ok, data, trace } = await callNamirial({
     method: 'POST',
     pathname: '/requests',
-    query: { idempotencyKey: crypto.randomUUID(), language: NAMIRIAL_LANGUAGE },
+    query: { idempotencyKey: crypto.randomUUID(), language: effective().language },
     body: requestBody,
   });
 
@@ -270,9 +279,123 @@ app.post('/api/status', async (req, res) => {
 /* ---------- Administración de webhooks desde el navegador ---------- */
 function adminOnly(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(404).json({ error: 'Rutas de administración desactivadas (falta ADMIN_TOKEN)' });
-  if (req.query.token !== ADMIN_TOKEN) return res.status(401).json({ error: 'token incorrecto' });
+  const given = req.get('x-admin-token') || req.query.token;
+  if (given !== ADMIN_TOKEN) return res.status(401).json({ error: 'token incorrecto' });
   next();
 }
+
+/* ---------- API de la página de administración ---------- */
+const ID = '[0-9a-fA-F-]{8,64}';
+const RT = `/requestType/(${ID})`;
+// Lista cerrada de llamadas que la administración puede reenviar a Namirial.
+const ALLOWED_CALLS = [
+  ['GET', new RegExp(`^${RT}/webhookConfigurations$`)],
+  ['POST', new RegExp(`^${RT}/webhookConfigurations$`)],
+  ['DELETE', new RegExp(`^${RT}/webhookConfiguration/${ID}$`)],
+  ['POST', new RegExp(`^${RT}/webhookConfiguration/${ID}/test$`)],
+  ['GET', new RegExp(`^${RT}/settings$`)],
+  ['PUT', new RegExp(`^${RT}/settings$`)],
+  ['GET', /^\/requests$/],
+  ['GET', new RegExp(`^/request/${ID}$`)],
+  ['GET', new RegExp(`^/request/${ID}/identifications$`)],
+  ['POST', new RegExp(`^/request/${ID}/userCancel$`)],
+  ['POST', new RegExp(`^/request/${ID}/anonymize$`)],
+  ['GET', /^\/info\/version$/],
+];
+const SECRET_PLACEHOLDER = '{{WEBHOOK_AUTH_VALUE}}';
+
+function substituteSecret(v) {
+  if (typeof v === 'string') return v === SECRET_PLACEHOLDER ? WEBHOOK_AUTH_VALUE || '' : v;
+  if (Array.isArray(v)) return v.map(substituteSecret);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, substituteSecret(x)]));
+  return v;
+}
+
+app.get('/api/admin/config', adminOnly, (req, res) => {
+  const eff = effective();
+  res.json({
+    baseUrl: BASE,
+    publicUrl: publicOrigin(req),
+    webhookUrl: `${publicOrigin(req)}/webhooks/namirial`,
+    webhookAuth: { enabled: Boolean(WEBHOOK_AUTH_VALUE), header: WEBHOOK_AUTH_HEADER, placeholder: SECRET_PLACEHOLDER },
+    hasApiKey: Boolean(NAMIRIAL_API_KEY),
+    basicAuth: Boolean(BASIC_AUTH_USER),
+    flows: FLOWS.map((f) => ({ id: f.id, name: f.name, requestTypeId: f.requestTypeId })),
+    current: eff,
+    defaults: { language: NAMIRIAL_LANGUAGE, email: DEMO_EMAIL || '', phone: DEMO_PHONE_NUMBER || '' },
+    overridden: Object.keys(runtime),
+    bufferedEvents: buffer.length,
+  });
+});
+
+app.post('/api/admin/config', adminOnly, (req, res) => {
+  const b = req.body || {};
+  if (b.reset) {
+    for (const k of Object.keys(runtime)) delete runtime[k];
+    return res.json({ ok: true, current: effective() });
+  }
+  const rules = {
+    language: [/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})?$/, 'langue invalide (ex. fr ou fr-FR)'],
+    email: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'e-mail invalide'],
+    phone: [/^\+[0-9]{6,15}$/, 'téléphone invalide (format international, ex. +34600111222)'],
+  };
+  for (const [key, [re, msg]] of Object.entries(rules)) {
+    if (!(key in b)) continue;
+    const v = String(b[key] ?? '').trim();
+    if (v === '') { if (key === 'language') delete runtime.language; else runtime[key] = ''; continue; }
+    if (!re.test(v)) return res.status(400).json({ ok: false, error: msg });
+    runtime[key] = v;
+  }
+  res.json({ ok: true, current: effective() });
+});
+
+app.post('/api/admin/call', adminOnly, async (req, res) => {
+  const { method, path: p, query, body } = req.body || {};
+  const m = String(method || '').toUpperCase();
+  const match = ALLOWED_CALLS.find(([am, re]) => am === m && re.test(String(p || '')));
+  if (!match) return res.status(400).json({ ok: false, error: 'Appel non autorisé' });
+  // Los request types solo pueden ser los de esta demo
+  const rt = String(p).match(new RegExp(`^${RT}/`));
+  if (rt && !FLOWS.some((f) => f.requestTypeId === rt[1])) {
+    return res.status(400).json({ ok: false, error: 'Request type inconnu' });
+  }
+  const cleanQuery = {};
+  for (const [k, v] of Object.entries(query && typeof query === 'object' ? query : {})) cleanQuery[k] = String(v);
+
+  const hasBody = body !== undefined && body !== null && m !== 'GET' && m !== 'DELETE';
+  const { ok, data, trace } = await callNamirial({
+    method: m,
+    pathname: p,
+    query: cleanQuery,
+    body: hasBody ? substituteSecret(body) : undefined,
+    traceBody: hasBody ? body : undefined, // en pantalla se ve el marcador, no el secreto
+  });
+  res.json({ ok, data, trace });
+});
+
+// Inyecta un webhook de prueba en el panel, sin pasar por Namirial
+app.post('/api/admin/test-webhook', adminOnly, (_req, res) => {
+  const now = new Date().toISOString();
+  publish({
+    id: crypto.randomUUID(),
+    receivedAt: now,
+    source: 'webhook',
+    headers: { 'content-type': 'application/json', 'x-origin': 'test local (administration)' },
+    body: {
+      id: crypto.randomUUID(),
+      type: 'STATUS_UPDATE',
+      createdAt: now,
+      request: { requestId: '00000000-0000-0000-0000-000000000000', requestTypeId: '00000000-0000-0000-0000-000000000000', status: 'RUNNING' },
+      note: 'Webhook de test local généré par la page d’administration',
+    },
+  });
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/clear-events', adminOnly, (_req, res) => {
+  clearEvents();
+  res.json({ ok: true });
+});
 
 // Lista los webhooks registrados en cada request type
 app.get('/api/admin/webhooks', adminOnly, async (_req, res) => {
@@ -342,6 +465,11 @@ app.get('/api/admin/reset-webhooks', adminOnly, async (req, res) => {
 const buffer = []; // últimos eventos en memoria
 const MAX_BUFFER = 300;
 const clients = new Set();
+
+function clearEvents() {
+  buffer.length = 0;
+  for (const c of clients) c.write('event: clear\ndata: {}\n\n');
+}
 
 function publish(event) {
   buffer.push(event);

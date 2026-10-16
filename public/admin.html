@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cofidis · Administration de la démo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="wordmark">cofidis</span>
+    <span class="sub">Entrée en relation client · Espagne</span>
+  </div>
+  <nav class="topnav" aria-label="Navigation">
+    <a href="/">Démo</a>
+    <a href="/admin.html" aria-current="page">Administration</a>
+  </nav>
+  <span class="env">Environnement de test</span>
+</header>
+
+<div class="layout">
+  <main class="app admin">
+
+    <section class="card lock" id="lock">
+      <h2>Accès à l’administration</h2>
+      <p class="help">Saisissez le jeton d’administration, c’est-à-dire la valeur de la variable <span class="mono">ADMIN_TOKEN</span> définie sur le serveur.</p>
+      <div class="field">
+        <label for="tokenInput">Jeton</label>
+        <input id="tokenInput" type="password" autocomplete="off">
+      </div>
+      <div class="btn-row"><button class="btn primary" id="btnUnlock" type="button">Accéder</button></div>
+      <p class="status-line" id="lockMsg"></p>
+    </section>
+
+    <div class="admin-stack" id="adminBody" hidden>
+
+      <section class="card">
+        <h2>Parcours concernés</h2>
+        <p class="help">Les actions des sections suivantes s’appliquent aux request types cochés.</p>
+        <div class="targets" id="targets"></div>
+      </section>
+
+      <section class="card">
+        <h2>Webhooks</h2>
+        <p class="help">Namirial envoie un avis à cette adresse à chaque changement de statut d’une demande. Le webhook se déclare séparément pour chaque request type.</p>
+        <dl class="info-grid" style="margin:0 0 14px"><dt>URL de réception</dt><dd class="mono" id="whUrl"></dd></dl>
+        <div class="checks" id="topics">
+          <label><input type="checkbox" value="REQUEST_STATUS" checked> REQUEST_STATUS</label>
+          <label><input type="checkbox" value="REQUEST_LIFECYCLE" checked> REQUEST_LIFECYCLE</label>
+          <label><input type="checkbox" value="IDENTIFICATION_UPDATE" checked> IDENTIFICATION_UPDATE</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnHooksList" type="button">Lister</button>
+          <button class="btn primary" id="btnHooksRegister" type="button">Enregistrer</button>
+          <button class="btn" id="btnHooksTest" type="button">Envoyer un test Namirial</button>
+          <button class="btn danger" id="btnHooksDelete" type="button">Supprimer</button>
+          <button class="btn danger" id="btnHooksReset" type="button">Réinitialiser</button>
+        </div>
+        <div class="checks" style="margin:12px 0 0">
+          <label><input type="checkbox" id="onlyDemo" checked> Ne supprimer que les webhooks de cette démo</label>
+        </div>
+        <div id="whTable"></div>
+        <p class="status-line" id="whMsg"></p>
+      </section>
+
+      <section class="card">
+        <h2>Paramètres par défaut du request type</h2>
+        <p class="help">Lecture et modification de <span class="mono">requestSettingsDefault</span> (<span class="mono">PUT /requestType/{id}/settings</span>). Envoyez l’objet complet : l’appel peut remplacer l’existant. La lecture porte sur le premier parcours coché ; l’envoi, sur tous les parcours cochés.</p>
+        <div class="field" style="margin-bottom:12px">
+          <label for="settingsJson">requestSettingsDefault (JSON)</label>
+          <textarea id="settingsJson" spellcheck="false">{}</textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnSetRead" type="button">Lire</button>
+          <button class="btn" id="btnSetWizard" type="button">Insérer le wizardUrlBack de la démo</button>
+          <button class="btn primary" id="btnSetPut" type="button">Envoyer (PUT)</button>
+        </div>
+        <p class="status-line" id="setMsg"></p>
+      </section>
+
+      <section class="card">
+        <h2>Demandes</h2>
+        <p class="help">L’API ne permet pas de supprimer une demande. On peut l’annuler (<span class="mono">userCancel</span>) ou demander son anonymisation. Cliquez sur une ligne pour reprendre son identifiant.</p>
+        <div class="btn-row"><button class="btn" id="btnReqList" type="button">Lister les demandes</button></div>
+        <div id="reqTable"></div>
+        <div class="fields" style="margin:14px 0 12px">
+          <div class="field">
+            <label for="reqId">Identifiant de la demande</label>
+            <input id="reqId" class="mono" type="text" autocomplete="off" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnReqGet" type="button">Consulter</button>
+          <button class="btn" id="btnReqIdent" type="button">Identifications</button>
+          <button class="btn danger" id="btnReqCancel" type="button">Annuler</button>
+          <button class="btn danger" id="btnReqAnon" type="button">Anonymiser</button>
+        </div>
+        <p class="status-line" id="reqMsg"></p>
+      </section>
+
+      <section class="card">
+        <h2>Démo et diagnostic</h2>
+        <p class="help">Valeurs utilisées par la démo à chaque lancement d’un parcours. Les modifications restent en mémoire et sont perdues au redémarrage du serveur.</p>
+        <div class="fields">
+          <div class="field">
+            <label for="cfgLang">Langue du parcours (<span class="mono">language</span>)</label>
+            <input id="cfgLang" list="langs" type="text" autocomplete="off">
+            <datalist id="langs"><option value="fr"><option value="fr-FR"><option value="es"><option value="en"><option value="it"><option value="de"></datalist>
+          </div>
+          <div class="field">
+            <label for="cfgEmail">E-mail du signataire</label>
+            <input id="cfgEmail" type="email" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="cfgPhone">Téléphone du signataire</label>
+            <input id="cfgPhone" type="tel" autocomplete="off" placeholder="+34600111222">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="btnCfgApply" type="button">Appliquer</button>
+          <button class="btn" id="btnCfgReset" type="button">Revenir aux valeurs d’environnement</button>
+        </div>
+        <p class="status-line" id="cfgMsg"></p>
+
+        <div class="btn-row" style="margin-top:18px">
+          <button class="btn" id="btnVersion" type="button">Version de l’API</button>
+          <button class="btn" id="btnLocalHook" type="button">Webhook de test local</button>
+          <button class="btn" id="btnClearHooks" type="button">Vider les webhooks reçus</button>
+        </div>
+        <dl class="info-grid" id="info"></dl>
+      </section>
+
+    </div>
+  </main>
+
+  <aside class="console" aria-label="Console d'intégration">
+    <div class="con-head">
+      <h2>Console d'intégration</h2>
+      <div class="con-actions">
+        <button class="cbtn" id="btnClear" type="button">Effacer</button>
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <section class="pane" id="apiPane"></section>
+
+    <section class="pane" id="whPane" style="border-bottom:0"></section>
+  </aside>
+</div>
+
+<script src="/console.js"></script>
+<script>
+/* ============ Estado y acceso ============ */
+const A = { token: sessionStorage.getItem('adminToken') || '', cfg: null, targets: new Set(), hooks: {} };
+state.apiHint = "Lancez une action d’administration : vous voyez ici l’appel exact envoyé à l’API Namirial Onboarding et sa réponse.";
+
+function setMsg(id, text, err = false) {
+  const el = $('#' + id);
+  el.textContent = text || '';
+  el.classList.toggle('err', Boolean(err));
+}
+
+async function adminFetch(url, opts = {}) {
+  const r = await fetch(url, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': A.token },
+    body: opts.body,
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* sin cuerpo */ }
+  return { status: r.status, data };
+}
+
+async function unlock(token, silent) {
+  A.token = token;
+  const { status, data } = await adminFetch('/api/admin/config');
+  if (status === 200) {
+    sessionStorage.setItem('adminToken', token);
+    A.cfg = data;
+    showAdmin();
+    return true;
+  }
+  sessionStorage.removeItem('adminToken');
+  if (!silent) {
+    setMsg('lockMsg', status === 404
+      ? "L’administration est désactivée : ajoutez la variable ADMIN_TOKEN sur le serveur."
+      : 'Jeton incorrect.', true);
+  }
+  return false;
+}
+
+function lockAgain() {
+  sessionStorage.removeItem('adminToken');
+  $('#adminBody').hidden = true;
+  $('#lock').hidden = false;
+  setMsg('lockMsg', 'Session expirée : saisissez à nouveau le jeton.', true);
+}
+
+/* ============ Llamadas a Namirial (a través del servidor) ============ */
+async function call(method, path, { query, body } = {}) {
+  const { status, data } = await adminFetch('/api/admin/call', {
+    method: 'POST',
+    body: JSON.stringify({ method, path, query, body }),
+  });
+  if (status === 401) { lockAgain(); throw new Error('Session expirée'); }
+  if (data?.trace) addCall(data.trace);
+  if (!data?.trace && data?.error) throw new Error(data.error);
+  return data || { ok: false };
+}
+
+async function run(msgId, fn) {
+  const buttons = [...document.querySelectorAll('.btn')];
+  buttons.forEach((b) => (b.disabled = true));
+  setMsg(msgId, 'En cours…');
+  try { await fn(); }
+  catch (e) { setMsg(msgId, e.message || 'Erreur inattendue', true); }
+  finally { buttons.forEach((b) => (b.disabled = false)); }
+}
+
+const selectedFlows = () => A.cfg.flows.filter((f) => A.targets.has(f.requestTypeId));
+const needFlows = () => {
+  const f = selectedFlows();
+  if (!f.length) throw new Error('Cochez au moins un parcours.');
+  return f;
+};
+const shortId = (id) => String(id).slice(0, 8) + '…';
+const fmtDate = (v) => (v ? new Date(v).toLocaleString('fr-FR') : '—');
+const listOf = (d) => (Array.isArray(d?.data?.content) ? d.data.content : Array.isArray(d?.data) ? d.data : null);
+
+/* ============ Pantalla ============ */
+function showAdmin() {
+  $('#lock').hidden = true;
+  $('#adminBody').hidden = false;
+  if (!A.targets.size) A.cfg.flows.forEach((f) => A.targets.add(f.requestTypeId));
+  renderTargets();
+  $('#whUrl').textContent = A.cfg.webhookUrl;
+  fillConfig();
+  renderInfo();
+  renderHooks();
+}
+
+function renderTargets() {
+  $('#targets').innerHTML = A.cfg.flows.map((f) => `
+    <label class="target">
+      <input type="checkbox" data-target="${esc(f.requestTypeId)}" ${A.targets.has(f.requestTypeId) ? 'checked' : ''}>
+      <span><strong>${esc(f.name)}</strong><br><small>${esc(shortId(f.requestTypeId))}</small></span>
+    </label>`).join('');
+}
+
+function fillConfig() {
+  const c = A.cfg.current;
+  $('#cfgLang').value = c.language || '';
+  $('#cfgEmail').value = c.email || '';
+  $('#cfgPhone').value = c.phone || '';
+  const o = A.cfg.overridden;
+  setMsg('cfgMsg', o.length ? `Valeurs modifiées en mémoire : ${o.join(', ')}.` : 'Valeurs issues des variables d’environnement.');
+}
+
+function pill(cls, text) { return `<span class="pill ${cls}">${esc(text)}</span>`; }
+
+function renderInfo() {
+  const c = A.cfg;
+  $('#info').innerHTML = `
+    <dt>API Namirial</dt><dd class="mono">${esc(c.baseUrl)}</dd>
+    <dt>URL publique</dt><dd class="mono">${esc(c.publicUrl)}</dd>
+    <dt>Clé d’API</dt><dd>${c.hasApiKey ? pill('ok', 'définie') : pill('bad', 'absente')}</dd>
+    <dt>Accès Basic Auth</dt><dd>${c.basicAuth ? pill('ok', 'activé') : pill('none', 'désactivé')}</dd>
+    <dt>Secret des webhooks</dt><dd>${c.webhookAuth.enabled ? pill('ok', 'en-tête ' + c.webhookAuth.header) : pill('none', 'aucun')}</dd>
+    <dt>Webhooks en mémoire</dt><dd>${c.bufferedEvents}</dd>`;
+}
+
+/* ============ Webhooks ============ */
+const isDemoHook = (c) => String(c.url || '').includes('/webhooks/namirial');
+const sameHook = (c) => String(c.url || '') === A.cfg.webhookUrl;
+const hookId = (c) => c.id ?? c.webhookConfigurationId;
+
+function renderHooks() {
+  const rows = A.cfg.flows.map((f) => {
+    const items = A.hooks[f.requestTypeId];
+    let cell;
+    if (items === undefined) cell = pill('none', 'Non consulté');
+    else if (items === null) cell = pill('bad', 'Erreur de lecture');
+    else if (!items.length) cell = pill('bad', 'Aucun webhook');
+    else cell = items.map((c) => {
+      const url = String(c.url || '');
+      const tag = url.startsWith('http://') ? pill('warn', 'http : redirigé')
+        : sameHook(c) ? pill('ok', 'OK') : pill('none', 'Autre URL');
+      return `<div style="margin-bottom:4px">${tag} <span class="mono">${esc(url)}</span></div>`;
+    }).join('');
+    return `<tr><td><strong>${esc(f.name)}</strong></td><td>${cell}</td></tr>`;
+  }).join('');
+  $('#whTable').innerHTML = `<table class="tbl"><thead><tr><th>Parcours</th><th>Webhooks enregistrés</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function listHooks(f) {
+  const d = await call('GET', `/requestType/${f.requestTypeId}/webhookConfigurations`);
+  const items = d.ok ? listOf(d) : null;
+  A.hooks[f.requestTypeId] = items;
+  return items;
+}
+
+async function registerCore(flows) {
+  const topics = [...document.querySelectorAll('#topics input:checked')].map((i) => i.value);
+  if (!topics.length) throw new Error('Cochez au moins un thème (topic).');
+  let created = 0, skipped = 0, failed = 0;
+  for (const f of flows) {
+    const items = await listHooks(f);
+    if (items && items.some(sameHook)) { skipped++; continue; }
+    const body = { url: A.cfg.webhookUrl, topics };
+    if (A.cfg.webhookAuth.enabled) {
+      body.authentication = { type: 'CUSTOM_HEADERS', headers: { [A.cfg.webhookAuth.header]: A.cfg.webhookAuth.placeholder } };
+    }
+    const d = await call('POST', `/requestType/${f.requestTypeId}/webhookConfigurations`, { body });
+    d.ok ? created++ : failed++;
+  }
+  for (const f of flows) await listHooks(f);
+  renderHooks();
+  return { created, skipped, failed };
+}
+
+async function deleteCore(flows, onlyDemo) {
+  let deleted = 0, failed = 0;
+  for (const f of flows) {
+    const items = (await listHooks(f)) || [];
+    for (const c of items.filter((x) => (onlyDemo ? isDemoHook(x) : true))) {
+      const id = hookId(c);
+      if (!id) { failed++; continue; }
+      const d = await call('DELETE', `/requestType/${f.requestTypeId}/webhookConfiguration/${id}`);
+      d.ok ? deleted++ : failed++;
+    }
+  }
+  for (const f of flows) await listHooks(f);
+  renderHooks();
+  return { deleted, failed };
+}
+
+const actions = {
+  hooksList: () => run('whMsg', async () => {
+    const flows = needFlows();
+    for (const f of flows) await listHooks(f);
+    renderHooks();
+    setMsg('whMsg', `${flows.length} parcours consulté(s).`);
+  }),
+
+  hooksRegister: () => run('whMsg', async () => {
+    const r = await registerCore(needFlows());
+    setMsg('whMsg', `Enregistrés : ${r.created} · déjà présents : ${r.skipped} · erreurs : ${r.failed}.`, r.failed > 0);
+  }),
+
+  hooksTest: () => run('whMsg', async () => {
+    const flows = needFlows();
+    let sent = 0, failed = 0;
+    for (const f of flows) {
+      const items = (await listHooks(f)) || [];
+      for (const c of items.filter(isDemoHook)) {
+        const id = hookId(c);
+        if (!id) continue;
+        const d = await call('POST', `/requestType/${f.requestTypeId}/webhookConfiguration/${id}/test`);
+        d.ok ? sent++ : failed++;
+      }
+    }
+    renderHooks();
+    setMsg('whMsg', sent || failed
+      ? `Tests demandés : ${sent} · erreurs : ${failed}. Les avis apparaissent dans « Webhooks reçus ».`
+      : 'Aucun webhook de la démo à tester : enregistrez-le d’abord.', failed > 0);
+  }),
+
+  hooksDelete: () => run('whMsg', async () => {
+    const flows = needFlows();
+    const onlyDemo = $('#onlyDemo').checked;
+    if (!confirm(`Supprimer les webhooks ${onlyDemo ? 'de la démo ' : ''}de ${flows.length} parcours ?`)) { setMsg('whMsg', 'Annulé.'); return; }
+    const r = await deleteCore(flows, onlyDemo);
+    setMsg('whMsg', `Supprimés : ${r.deleted} · erreurs : ${r.failed}.`, r.failed > 0);
+  }),
+
+  hooksReset: () => run('whMsg', async () => {
+    const flows = needFlows();
+    if (!confirm(`Supprimer puis recréer le webhook de la démo pour ${flows.length} parcours ?`)) { setMsg('whMsg', 'Annulé.'); return; }
+    const d = await deleteCore(flows, true);
+    const r = await registerCore(flows);
+    setMsg('whMsg', `Supprimés : ${d.deleted} · créés : ${r.created} · erreurs : ${d.failed + r.failed}.`, d.failed + r.failed > 0);
+  }),
+
+  /* ---------- Parámetros del request type ---------- */
+  setRead: () => run('setMsg', async () => {
+    const f = needFlows()[0];
+    const d = await call('GET', `/requestType/${f.requestTypeId}/settings`);
+    if (!d.ok) throw new Error('Lecture impossible : voir la console.');
+    $('#settingsJson').value = JSON.stringify(d.data?.requestSettingsDefault ?? {}, null, 2);
+    setMsg('setMsg', `Paramètres lus pour « ${f.name} ».`);
+  }),
+
+  setWizard: async () => {
+    let obj;
+    try { obj = JSON.parse($('#settingsJson').value || '{}'); }
+    catch { return setMsg('setMsg', 'JSON invalide.', true); }
+    obj.wizardUrlBack = `${A.cfg.publicUrl}/return?requestId=<requestId>&referenceId=<referenceId>&status=<status>&requestTypeId=<requestTypeId>&actor=<actor>`;
+    $('#settingsJson').value = JSON.stringify(obj, null, 2);
+    setMsg('setMsg', 'wizardUrlBack ajouté. Pensez à envoyer (PUT).');
+  },
+
+  setPut: () => run('setMsg', async () => {
+    const flows = needFlows();
+    let obj;
+    try { obj = JSON.parse($('#settingsJson').value || '{}'); }
+    catch { throw new Error('JSON invalide.'); }
+    if (!confirm(`Envoyer ces paramètres à ${flows.length} parcours ? L’existant peut être remplacé.`)) { setMsg('setMsg', 'Annulé.'); return; }
+    let ok = 0, ko = 0;
+    for (const f of flows) {
+      const d = await call('PUT', `/requestType/${f.requestTypeId}/settings`, { body: { requestSettingsDefault: obj } });
+      d.ok ? ok++ : ko++;
+    }
+    setMsg('setMsg', `Envoyé : ${ok} · erreurs : ${ko}.`, ko > 0);
+  }),
+
+  /* ---------- Solicitudes ---------- */
+  reqList: () => run('reqMsg', async () => {
+    const d = await call('GET', '/requests');
+    const items = d.ok ? listOf(d) : null;
+    if (!d.ok) throw new Error('Lecture impossible : voir la console.');
+    if (!items) { $('#reqTable').innerHTML = ''; setMsg('reqMsg', 'Réponse reçue : voir la console.'); return; }
+    const byType = Object.fromEntries(A.cfg.flows.map((f) => [f.requestTypeId, f.name]));
+    const rows = items.slice(0, 50).map((r) => `
+      <tr class="click" data-req="${esc(r.id || '')}">
+        <td class="mono">${esc(shortId(r.id || '?'))}</td>
+        <td>${pill(['COMPLETED'].includes(r.status) ? 'ok' : ['FAILED', 'CANCELLED', 'EXPIRED'].includes(r.status) ? 'bad' : 'warn', r.status || '?')}</td>
+        <td>${esc(byType[r.requestTypeId] || (r.requestTypeId ? shortId(r.requestTypeId) : '—'))}</td>
+        <td>${esc(fmtDate(r.createdAt))}</td>
+      </tr>`).join('');
+    $('#reqTable').innerHTML = `<table class="tbl"><thead><tr><th>Identifiant</th><th>Statut</th><th>Parcours</th><th>Créée le</th></tr></thead><tbody>${rows}</tbody></table>`;
+    setMsg('reqMsg', `${items.length} demande(s) reçue(s)${items.length > 50 ? ' (50 affichées)' : ''}.`);
+  }),
+
+  reqGet: () => reqAction('GET', '', false),
+  reqIdent: () => reqAction('GET', '/identifications', false),
+  reqCancel: () => reqAction('POST', '/userCancel', "Annuler cette demande ?"),
+  reqAnon: () => reqAction('POST', '/anonymize', "Anonymiser cette demande ? Cette action peut être irréversible."),
+
+  /* ---------- Configuración de la demo y diagnóstico ---------- */
+  cfgApply: () => run('cfgMsg', async () => {
+    const { status, data } = await adminFetch('/api/admin/config', {
+      method: 'POST',
+      body: JSON.stringify({ language: $('#cfgLang').value, email: $('#cfgEmail').value, phone: $('#cfgPhone').value }),
+    });
+    if (status !== 200) throw new Error(data?.error || 'Valeurs refusées.');
+    await refreshConfig();
+    setMsg('cfgMsg', 'Valeurs appliquées. ' + $('#cfgMsg').textContent);
+  }),
+
+  cfgReset: () => run('cfgMsg', async () => {
+    await adminFetch('/api/admin/config', { method: 'POST', body: JSON.stringify({ reset: true }) });
+    await refreshConfig();
+  }),
+
+  version: () => run('cfgMsg', async () => {
+    const d = await call('GET', '/info/version');
+    setMsg('cfgMsg', d.ok ? 'API joignable : voir la réponse dans la console.' : 'L’API ne répond pas correctement : voir la console.', !d.ok);
+  }),
+
+  localHook: () => run('cfgMsg', async () => {
+    await adminFetch('/api/admin/test-webhook', { method: 'POST', body: '{}' });
+    setMsg('cfgMsg', 'Webhook de test local envoyé : il doit apparaître dans « Webhooks reçus ».');
+  }),
+
+  clearHooks: () => run('cfgMsg', async () => {
+    await adminFetch('/api/admin/clear-events', { method: 'POST', body: '{}' });
+    await refreshConfig();
+    setMsg('cfgMsg', 'Webhooks reçus effacés.');
+  }),
+};
+
+async function reqAction(method, suffix, confirmText) {
+  const id = $('#reqId').value.trim();
+  if (!/^[0-9a-fA-F-]{8,64}$/.test(id)) return setMsg('reqMsg', 'Saisissez un identifiant de demande valide.', true);
+  if (confirmText && !confirm(confirmText)) return setMsg('reqMsg', 'Annulé.');
+  return run('reqMsg', async () => {
+    const d = await call(method, `/request/${id}${suffix}`);
+    setMsg('reqMsg', d.ok ? 'Appel effectué : voir la réponse dans la console.' : 'L’API a renvoyé une erreur : voir la console.', !d.ok);
+  });
+}
+
+async function refreshConfig() {
+  const { status, data } = await adminFetch('/api/admin/config');
+  if (status === 200) { A.cfg = data; fillConfig(); renderInfo(); $('#whUrl').textContent = A.cfg.webhookUrl; }
+}
+
+/* ============ Eventos ============ */
+const BUTTONS = {
+  btnHooksList: 'hooksList', btnHooksRegister: 'hooksRegister', btnHooksTest: 'hooksTest',
+  btnHooksDelete: 'hooksDelete', btnHooksReset: 'hooksReset',
+  btnSetRead: 'setRead', btnSetWizard: 'setWizard', btnSetPut: 'setPut',
+  btnReqList: 'reqList', btnReqGet: 'reqGet', btnReqIdent: 'reqIdent', btnReqCancel: 'reqCancel', btnReqAnon: 'reqAnon',
+  btnCfgApply: 'cfgApply', btnCfgReset: 'cfgReset', btnVersion: 'version', btnLocalHook: 'localHook', btnClearHooks: 'clearHooks',
+};
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (btn && BUTTONS[btn.id]) return actions[BUTTONS[btn.id]]();
+
+  const row = e.target.closest('[data-req]');
+  if (row && row.dataset.req) { $('#reqId').value = row.dataset.req; setMsg('reqMsg', 'Identifiant repris.'); }
+
+  if (e.target.id === 'btnUnlock') unlock($('#tokenInput').value.trim(), false);
+});
+
+document.addEventListener('change', (e) => {
+  const t = e.target.closest('[data-target]');
+  if (t) { t.checked ? A.targets.add(t.dataset.target) : A.targets.delete(t.dataset.target); }
+});
+
+$('#tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(e.target.value.trim(), false); });
+
+/* ============ Arranque ============ */
+renderApi();
+renderWebhooks();
+connectEvents();
+if (A.token) unlock(A.token, true);
+</script>
+</body>
+</html>

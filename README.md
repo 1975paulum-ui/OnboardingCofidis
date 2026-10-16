@@ -60,6 +60,22 @@ Después puedes enviar un evento de prueba con `POST /requestType/{id}/webhookCo
 }
 ```
 
+## Página de administración (`/admin.html`)
+
+Comparte cabecera y consola con la demo. Cada acción lanza llamadas reales a la API de Namirial, y la consola de la derecha muestra cada una (método, URL, cabeceras, cuerpo y respuesta).
+
+Para activarla, define `ADMIN_TOKEN` en Render. Al abrir la página, pide ese jeton y lo guarda solo en la sesión del navegador. Sin la variable, la administración queda desactivada.
+
+| Sección | Qué permite |
+|---|---|
+| Parcours concernés | Elegir a qué request types se aplican las acciones |
+| Webhooks | Listar, registrar (sin crear duplicados), enviar el test de Namirial, suprimir y reinicializar; elegir los topics; ver si alguna URL está registrada con `http://` |
+| Paramètres du request type | Leer y modificar `requestSettingsDefault` (`GET/PUT /requestType/{id}/settings`) e insertar el `wizardUrlBack` de la demo |
+| Demandes | Listar solicitudes, consultar una, ver sus identificaciones, anular (`userCancel`) o anonimizar |
+| Démo et diagnostic | Cambiar en caliente el idioma, el email y el teléfono (en memoria), consultar la versión de la API, inyectar un webhook de prueba local y vaciar los webhooks recibidos |
+
+El servidor solo reenvía a Namirial una lista cerrada de llamadas y solo para los request types de la demo. Si `WEBHOOK_AUTH_VALUE` está definida, el secreto lo añade el servidor y en la consola solo se ve un marcador.
+
 ## Puntos a vigilar
 
 - **Iframe bloqueado.** Si la página de Namirial envía `X-Frame-Options` o `Content-Security-Policy: frame-ancestors`, el navegador no la mostrará dentro de tu web. Pide a Namirial que autorice tu dominio de Render. Mientras tanto, el botón "Abrir en pestaña nueva" sirve de salida.
