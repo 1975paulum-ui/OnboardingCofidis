@@ -47,6 +47,9 @@ const effective = () => ({
 
 const BASE = NAMIRIAL_BASE_URL.replace(/\/+$/, '');
 
+// Identifica la versión desplegada (se ve en el log de arranque, en /healthz y en la administración)
+const APP_VERSION = '2026-10-16-r2';
+
 // Los tres botones del menú. Edita nombres y descripciones a tu gusto.
 const FLOWS = [
   {
@@ -78,6 +81,15 @@ const FLOWS = [
 
 // De dónde sale el id de cada flujo: de la variable de entorno o del valor por defecto del código
 const idSource = (f) => (clean(env[f.envVar]) ? 'env' : 'default');
+
+// Clave de API por flujo (opcional). Los request types pertenecen a una organización, y la clave
+// solo sirve para la suya: si un flujo es de otra organización, define NAMIRIAL_API_KEY_<FLUJO>.
+for (const f of FLOWS) {
+  f.keyVar = 'NAMIRIAL_API_KEY_' + f.envVar.replace('REQUEST_TYPE_', '');
+  f.ownKey = clean(env[f.keyVar]);
+  f.apiKey = f.ownKey || NAMIRIAL_API_KEY;
+}
+const flowKey = (f) => (f ? f.apiKey : NAMIRIAL_API_KEY);
 
 const app = express();
 app.disable('x-powered-by');
@@ -135,14 +147,18 @@ function safeHeaders(headers) {
  * Llama a la API de Namirial y devuelve, junto al resultado, una "traza"
  * estilo Postman (petición enviada + respuesta recibida) para mostrarla en la web.
  */
-async function callNamirial({ method, pathname, query = {}, body, traceBody }) {
+async function callNamirial({ method, pathname, query = {}, body, traceBody, apiKey }) {
   const qs = new URLSearchParams(query).toString();
   const url = `${BASE}${pathname}${qs ? `?${qs}` : ''}`;
   const headers = {
-    Accept: 'application/json',
-    'X-Api-Key': NAMIRIAL_API_KEY || '',
+    // Algunos endpoints (p. ej. anonymize) solo aceptan application/problem+json: se admiten ambos
+    Accept: 'application/json, application/problem+json',
+    'X-Api-Key': (apiKey ?? NAMIRIAL_API_KEY) || '',
   };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // Namirial responde 415 a un POST sin Content-Type, aunque el endpoint no necesite datos:
+  // en POST/PUT/PATCH se envía siempre JSON (un objeto vacío si no hay cuerpo).
+  const payload = body !== undefined ? body : ['POST', 'PUT', 'PATCH'].includes(method) ? {} : undefined;
+  if (payload !== undefined) headers['Content-Type'] = 'application/json';
 
   const trace = {
     id: crypto.randomUUID(),
@@ -152,7 +168,7 @@ async function callNamirial({ method, pathname, query = {}, body, traceBody }) {
       url,
       query,
       headers: safeHeaders(headers),
-      body: (traceBody !== undefined ? traceBody : body) ?? null,
+      body: (traceBody !== undefined ? traceBody : payload) ?? null,
     },
     response: null,
   };
@@ -162,7 +178,7 @@ async function callNamirial({ method, pathname, query = {}, body, traceBody }) {
     const r = await fetch(url, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: payload !== undefined ? JSON.stringify(payload) : undefined,
       signal: AbortSignal.timeout(20000),
     });
     const text = await r.text();
@@ -210,15 +226,15 @@ function pickLink(data) {
 /* ---------- API para la web ---------- */
 app.get('/api/flows', (_req, res) => {
   res.json({
-    configured: Boolean(NAMIRIAL_API_KEY),
+    configured: FLOWS.some((f) => f.apiKey),
     publicUrl: PUBLIC_URL || null,
     baseUrl: BASE,
-    flows: FLOWS.map(({ id, name, desc, level, requestTypeId }) => ({
+    flows: FLOWS.map(({ id, name, desc, level, requestTypeId, apiKey }) => ({
       id,
       name,
       desc,
       level,
-      ready: Boolean(requestTypeId),
+      ready: Boolean(requestTypeId && apiKey),
     })),
   });
 });
@@ -232,7 +248,7 @@ app.get('/api/ping', async (_req, res) => {
 app.post('/api/start', async (req, res) => {
   const flow = FLOWS.find((f) => f.id === req.body?.flowId);
   if (!flow) return res.status(400).json({ error: 'Parcours inconnu', code: 'unknown_flow' });
-  if (!NAMIRIAL_API_KEY) return res.status(500).json({ error: 'NAMIRIAL_API_KEY est absente sur le serveur', code: 'no_api_key' });
+  if (!flow.apiKey) return res.status(500).json({ error: 'NAMIRIAL_API_KEY est absente sur le serveur', code: 'no_api_key' });
   if (!flow.requestTypeId) {
     return res.status(500).json({
       error: `Le requestTypeId du parcours « ${flow.name} » est absent des variables d'environnement`,
@@ -267,6 +283,7 @@ app.post('/api/start', async (req, res) => {
     pathname: '/requests',
     query: { idempotencyKey: crypto.randomUUID(), language: effective().language },
     body: requestBody,
+    apiKey: flow.apiKey,
   });
 
   res.json({
@@ -281,9 +298,11 @@ app.post('/api/start', async (req, res) => {
 app.post('/api/status', async (req, res) => {
   const requestId = String(req.body?.requestId || '');
   if (!/^[0-9a-fA-F-]{8,64}$/.test(requestId)) return res.status(400).json({ error: 'requestId invalide' });
+  const flow = FLOWS.find((f) => f.id === req.body?.flowId);
   const { ok, data, trace } = await callNamirial({
     method: 'GET',
     pathname: `/request/${requestId}`,
+    apiKey: flowKey(flow),
   });
   res.json({ ok, data, trace });
 });
@@ -326,13 +345,14 @@ function substituteSecret(v) {
 app.get('/api/admin/config', adminOnly, (req, res) => {
   const eff = effective();
   res.json({
+    version: APP_VERSION,
     baseUrl: BASE,
     publicUrl: publicOrigin(req),
     webhookUrl: `${publicOrigin(req)}/webhooks/namirial`,
     webhookAuth: { enabled: Boolean(WEBHOOK_AUTH_VALUE), header: WEBHOOK_AUTH_HEADER, placeholder: SECRET_PLACEHOLDER },
-    hasApiKey: Boolean(NAMIRIAL_API_KEY),
+    hasApiKey: FLOWS.some((f) => f.apiKey),
     basicAuth: Boolean(BASIC_AUTH_USER),
-    flows: FLOWS.map((f) => ({ id: f.id, name: f.name, requestTypeId: f.requestTypeId, envVar: f.envVar, source: idSource(f) })),
+    flows: FLOWS.map((f) => ({ id: f.id, name: f.name, requestTypeId: f.requestTypeId, envVar: f.envVar, source: idSource(f), keyVar: f.keyVar, ownKey: Boolean(f.ownKey), hasKey: Boolean(f.apiKey) })),
     current: eff,
     defaults: { language: NAMIRIAL_LANGUAGE, email: DEMO_EMAIL || '', phone: DEMO_PHONE_NUMBER || '' },
     overridden: Object.keys(runtime),
@@ -374,8 +394,14 @@ app.post('/api/admin/call', adminOnly, async (req, res) => {
   const cleanQuery = {};
   for (const [k, v] of Object.entries(query && typeof query === 'object' ? query : {})) cleanQuery[k] = String(v);
 
+  // Clave de API: la del request type de la ruta o, en las rutas de solicitudes, la del flujo indicado
+  const keyOwner = rt
+    ? FLOWS.find((f) => f.requestTypeId === rt[1])
+    : FLOWS.find((f) => f.id === req.body?.keyFlow);
+
   const hasBody = body !== undefined && body !== null && m !== 'GET' && m !== 'DELETE';
   const { ok, data, trace } = await callNamirial({
+    apiKey: flowKey(keyOwner),
     method: m,
     pathname: p,
     query: cleanQuery,
@@ -413,7 +439,7 @@ app.post('/api/admin/clear-events', adminOnly, (_req, res) => {
 app.get('/api/admin/webhooks', adminOnly, async (_req, res) => {
   const out = [];
   for (const f of FLOWS) {
-    const { trace } = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
+    const { trace } = await callNamirial({ apiKey: f.apiKey, method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
     out.push({ flow: f.name, requestTypeId: f.requestTypeId, status: trace.response.status, body: trace.response.body });
   }
   res.json(out);
@@ -431,7 +457,7 @@ app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
     if (WEBHOOK_AUTH_VALUE) {
       body.authentication = { type: 'CUSTOM_HEADERS', headers: { [WEBHOOK_AUTH_HEADER]: WEBHOOK_AUTH_VALUE } };
     }
-    const { trace } = await callNamirial({ method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
+    const { trace } = await callNamirial({ apiKey: f.apiKey, method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
     out.push({ flow: f.name, sent: body, status: trace.response.status, body: trace.response.body });
   }
   res.json(out);
@@ -441,7 +467,7 @@ app.get('/api/admin/register-webhooks', adminOnly, async (req, res) => {
 app.get('/api/admin/settings', adminOnly, async (_req, res) => {
   const out = [];
   for (const f of FLOWS) {
-    const { trace } = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/settings` });
+    const { trace } = await callNamirial({ apiKey: f.apiKey, method: 'GET', pathname: `/requestType/${f.requestTypeId}/settings` });
     out.push({ flow: f.name, requestTypeId: f.requestTypeId, status: trace.response.status, body: trace.response.body });
   }
   res.json(out);
@@ -454,19 +480,19 @@ app.get('/api/admin/reset-webhooks', adminOnly, async (req, res) => {
   const out = [];
   for (const f of FLOWS) {
     const step = { flow: f.name, deleted: [], created: null };
-    const list = await callNamirial({ method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
+    const list = await callNamirial({ apiKey: f.apiKey, method: 'GET', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations` });
     const configs = Array.isArray(list.data?.content) ? list.data.content : [];
     for (const c of configs) {
       const id = c.id ?? c.webhookConfigurationId;
       if (!id || !String(c.url || '').includes('/webhooks/namirial')) continue;
-      const del = await callNamirial({ method: 'DELETE', pathname: `/requestType/${f.requestTypeId}/webhookConfiguration/${id}` });
+      const del = await callNamirial({ apiKey: f.apiKey, method: 'DELETE', pathname: `/requestType/${f.requestTypeId}/webhookConfiguration/${id}` });
       step.deleted.push({ id, url: c.url, status: del.trace.response.status });
     }
     const body = { url: target, topics: ['REQUEST_STATUS', 'REQUEST_LIFECYCLE', 'IDENTIFICATION_UPDATE'] };
     if (WEBHOOK_AUTH_VALUE) {
       body.authentication = { type: 'CUSTOM_HEADERS', headers: { [WEBHOOK_AUTH_HEADER]: WEBHOOK_AUTH_VALUE } };
     }
-    const add = await callNamirial({ method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
+    const add = await callNamirial({ apiKey: f.apiKey, method: 'POST', pathname: `/requestType/${f.requestTypeId}/webhookConfigurations`, body });
     step.created = { url: target, status: add.trace.response.status, body: add.trace.response.body };
     out.push(step);
   }
@@ -531,17 +557,20 @@ app.get('/api/events', (req, res) => {
 
 /* ---------- Páginas ---------- */
 app.get('/return', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'return.html')));
-app.get('/healthz', (_req, res) => res.send('ok'));
+app.get('/healthz', (_req, res) => res.send(`ok ${APP_VERSION}`));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
-  console.log(`Demo Cofidis escuchando en :${PORT}`);
+  console.log(`Demo Cofidis ${APP_VERSION} escuchando en :${PORT}`);
   console.log(`API Namirial: ${BASE}`);
   if (!NAMIRIAL_API_KEY) console.warn('Aviso: NAMIRIAL_API_KEY no está definida');
 
   // Qué id usa cada botón y de dónde sale (útil para comprobar las variables de Render)
   for (const f of FLOWS) {
     console.log(`[config] ${f.name}: ${f.requestTypeId}  (${idSource(f) === 'env' ? 'variable ' + f.envVar : 'valor por defecto; no hay ' + f.envVar})`);
+  }
+  for (const f of FLOWS) {
+    console.log(`[config] ${f.name}: clave de API ${f.ownKey ? 'propia (' + f.keyVar + ')' : f.apiKey ? 'común (NAMIRIAL_API_KEY)' : 'AUSENTE'}`);
   }
   const known = new Set(FLOWS.map((f) => f.envVar));
   for (const k of Object.keys(env)) {

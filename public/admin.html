@@ -95,6 +95,10 @@
         <div id="reqTable"></div>
         <div class="fields" style="margin:14px 0 12px">
           <div class="field">
+            <label for="keyFlow" data-i18n="adm.keyFlowLabel">Clé d’API utilisée pour les demandes (organisation du parcours)</label>
+            <select id="keyFlow"></select>
+          </div>
+          <div class="field">
             <label for="reqId" data-i18n="adm.reqIdLabel">Identifiant de la demande</label>
             <input id="reqId" class="mono" type="text" autocomplete="off" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
           </div>
@@ -210,7 +214,7 @@ function lockAgain() {
 async function call(method, path, { query, body } = {}) {
   const { status, data } = await adminFetch('/api/admin/call', {
     method: 'POST',
-    body: JSON.stringify({ method, path, query, body }),
+    body: JSON.stringify({ method, path, query, body, keyFlow: $('#keyFlow') ? $('#keyFlow').value : undefined }),
   });
   if (status === 401) { lockAgain(); throw new Error(t('adm.expired')); }
   if (data?.trace) addCall(data.trace);
@@ -243,6 +247,7 @@ function showAdmin() {
   $('#adminBody').hidden = false;
   if (!A.targets.size) A.cfg.flows.forEach((f) => A.targets.add(f.requestTypeId));
   renderTargets();
+  renderKeyFlow();
   $('#whUrl').textContent = A.cfg.webhookUrl;
   fillConfig();
   renderInfo();
@@ -253,8 +258,15 @@ function renderTargets() {
   $('#targets').innerHTML = A.cfg.flows.map((f) => `
     <label class="target">
       <input type="checkbox" data-target="${esc(f.requestTypeId)}" ${A.targets.has(f.requestTypeId) ? 'checked' : ''}>
-      <span><strong>${esc(f.name)}</strong> ${pill(f.source === 'env' ? 'ok' : 'warn', t(f.source === 'env' ? 'adm.srcEnv' : 'adm.srcDefault'))}<br><small>${esc(f.requestTypeId)}</small><br><small>${esc(f.envVar || '')}</small></span>
+      <span><strong>${esc(f.name)}</strong> ${pill(f.source === 'env' ? 'ok' : 'warn', t(f.source === 'env' ? 'adm.srcEnv' : 'adm.srcDefault'))}<br><small>${esc(f.requestTypeId)}</small><br><small>${esc(f.envVar || '')}</small><br><small>${esc(f.keyVar || '')} · ${esc(t(f.ownKey ? 'adm.keyOwn' : f.hasKey ? 'adm.keyDefault' : 'adm.keyMissing'))}</small></span>
     </label>`).join('');
+}
+
+function renderKeyFlow() {
+  const sel = $('#keyFlow');
+  const keep = sel.value;
+  sel.innerHTML = A.cfg.flows.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join('');
+  if (keep && A.cfg.flows.some((f) => f.id === keep)) sel.value = keep;
 }
 
 function fillConfig() {
@@ -271,6 +283,7 @@ function pill(cls, text) { return `<span class="pill ${cls}">${esc(text)}</span>
 function renderInfo() {
   const c = A.cfg;
   $('#info').innerHTML = `
+    <dt>${esc(t('adm.infoVersion'))}</dt><dd class="mono">${esc(c.version || '—')}</dd>
     <dt>${esc(t('adm.infoApi'))}</dt><dd class="mono">${esc(c.baseUrl)}</dd>
     <dt>${esc(t('adm.infoPublic'))}</dt><dd class="mono">${esc(c.publicUrl)}</dd>
     <dt>${esc(t('adm.infoKey'))}</dt><dd>${c.hasApiKey ? pill('ok', t('adm.defined')) : pill('bad', t('adm.absent'))}</dd>
@@ -435,7 +448,7 @@ const actions = {
 
   reqGet: () => reqAction('GET', '', false),
   reqIdent: () => reqAction('GET', '/identifications', false),
-  reqCancel: () => reqAction('POST', '/userCancel', 'adm.confirmCancel'),
+  reqCancel: () => reqAction('POST', '/userCancel', 'adm.confirmCancel', 'adm.cancelReason'),
   reqAnon: () => reqAction('POST', '/anonymize', 'adm.confirmAnon'),
 
   /* ---------- Configuración de la demo y diagnóstico ---------- */
@@ -485,12 +498,19 @@ function renderReqTable() {
   $('#reqTable').innerHTML = `<table class="tbl"><thead><tr><th>${esc(t('adm.thId'))}</th><th>${esc(t('adm.thStatus'))}</th><th>${esc(t('adm.thFlow'))}</th><th>${esc(t('adm.thCreated'))}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-async function reqAction(method, suffix, confirmKey) {
+async function reqAction(method, suffix, confirmKey, reasonKey) {
   const id = $('#reqId').value.trim();
   if (!/^[0-9a-fA-F-]{8,64}$/.test(id)) return setMsg('reqMsg', t('adm.needReqId'), true);
   if (confirmKey && !confirm(t(confirmKey))) return setMsg('reqMsg', t('adm.cancelled'));
+  // userCancel acepta un motivo opcional (`reason`); si se cierra el cuadro, no se anula
+  let body;
+  if (reasonKey) {
+    const reason = prompt(t(reasonKey), '');
+    if (reason === null) return setMsg('reqMsg', t('adm.cancelled'));
+    body = reason.trim() ? { reason: reason.trim() } : {};
+  }
   return run('reqMsg', async () => {
-    const d = await call(method, `/request/${id}${suffix}`);
+    const d = await call(method, `/request/${id}${suffix}`, { body });
     setMsg('reqMsg', d.ok ? t('adm.callOk') : t('adm.callKo'), !d.ok);
   });
 }

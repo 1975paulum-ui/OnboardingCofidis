@@ -188,7 +188,7 @@ document.addEventListener('click', async (e) => {
     try {
       const r = await fetch('/api/status', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: state.reqId }),
+        body: JSON.stringify({ requestId: state.reqId, flowId: state.activeFlow }),
       });
       const d = await r.json();
       if (d.trace) addCall(d.trace);

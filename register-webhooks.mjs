@@ -29,7 +29,7 @@ for (const id of [REQUEST_TYPE_IDSELF, REQUEST_TYPE_IDSELF_SIGN, REQUEST_TYPE_ID
   }
   const r = await fetch(`${base}/requestType/${id}/webhookConfigurations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Api-Key': NAMIRIAL_API_KEY },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json, application/problem+json', 'X-Api-Key': NAMIRIAL_API_KEY },
     body: JSON.stringify(body),
   });
   console.log(id, '→', r.status, (await r.text()).slice(0, 300));
