@@ -223,10 +223,14 @@ app.get('/api/ping', async (_req, res) => {
 
 app.post('/api/start', async (req, res) => {
   const flow = FLOWS.find((f) => f.id === req.body?.flowId);
-  if (!flow) return res.status(400).json({ error: 'Parcours inconnu' });
-  if (!NAMIRIAL_API_KEY) return res.status(500).json({ error: 'NAMIRIAL_API_KEY est absente sur le serveur' });
+  if (!flow) return res.status(400).json({ error: 'Parcours inconnu', code: 'unknown_flow' });
+  if (!NAMIRIAL_API_KEY) return res.status(500).json({ error: 'NAMIRIAL_API_KEY est absente sur le serveur', code: 'no_api_key' });
   if (!flow.requestTypeId) {
-    return res.status(500).json({ error: `Le requestTypeId du parcours « ${flow.name} » est absent des variables d'environnement` });
+    return res.status(500).json({
+      error: `Le requestTypeId du parcours « ${flow.name} » est absent des variables d'environnement`,
+      code: 'no_request_type',
+      name: flow.name,
+    });
   }
 
   const origin = publicOrigin(req);
@@ -335,15 +339,15 @@ app.post('/api/admin/config', adminOnly, (req, res) => {
     return res.json({ ok: true, current: effective() });
   }
   const rules = {
-    language: [/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})?$/, 'langue invalide (ex. fr ou fr-FR)'],
-    email: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'e-mail invalide'],
-    phone: [/^\+[0-9]{6,15}$/, 'téléphone invalide (format international, ex. +34600111222)'],
+    language: [/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})?$/, 'langue invalide (ex. fr ou fr-FR)', 'bad_language'],
+    email: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'e-mail invalide', 'bad_email'],
+    phone: [/^\+[0-9]{6,15}$/, 'téléphone invalide (format international, ex. +34600111222)', 'bad_phone'],
   };
-  for (const [key, [re, msg]] of Object.entries(rules)) {
+  for (const [key, [re, msg, code]] of Object.entries(rules)) {
     if (!(key in b)) continue;
     const v = String(b[key] ?? '').trim();
     if (v === '') { if (key === 'language') delete runtime.language; else runtime[key] = ''; continue; }
-    if (!re.test(v)) return res.status(400).json({ ok: false, error: msg });
+    if (!re.test(v)) return res.status(400).json({ ok: false, error: msg, code });
     runtime[key] = v;
   }
   res.json({ ok: true, current: effective() });
@@ -353,11 +357,11 @@ app.post('/api/admin/call', adminOnly, async (req, res) => {
   const { method, path: p, query, body } = req.body || {};
   const m = String(method || '').toUpperCase();
   const match = ALLOWED_CALLS.find(([am, re]) => am === m && re.test(String(p || '')));
-  if (!match) return res.status(400).json({ ok: false, error: 'Appel non autorisé' });
+  if (!match) return res.status(400).json({ ok: false, error: 'Appel non autorisé', code: 'call_not_allowed' });
   // Los request types solo pueden ser los de esta demo
   const rt = String(p).match(new RegExp(`^${RT}/`));
   if (rt && !FLOWS.some((f) => f.requestTypeId === rt[1])) {
-    return res.status(400).json({ ok: false, error: 'Request type inconnu' });
+    return res.status(400).json({ ok: false, error: 'Request type inconnu', code: 'unknown_request_type' });
   }
   const cleanQuery = {};
   for (const [k, v] of Object.entries(query && typeof query === 'object' ? query : {})) cleanQuery[k] = String(v);

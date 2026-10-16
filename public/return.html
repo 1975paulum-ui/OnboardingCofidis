@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vérification terminée</title>
+<title data-i18n="ret.title">Vérification terminée</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
@@ -51,32 +51,38 @@
   <p id="text">Vous pouvez fermer cet écran. Nous vous préviendrons lorsque l'examen sera terminé.</p>
   <p class="ref" id="ref"></p>
 </main>
+<script src="/i18n.js"></script>
 <script>
   const q = Object.fromEntries(new URLSearchParams(location.search));
   const status = (q.status || '').toUpperCase();
 
-  const mark = document.getElementById('mark');
-  const title = document.getElementById('title');
-  const text = document.getElementById('text');
+  // Textos según el estado final; el idioma es el elegido en la demo (guardado en el navegador)
+  let kind = 'received';
+  if (['REJECTED', 'FAILED', 'ERROR', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(status)) kind = 'bad';
+  else if (['ABORTED', 'INCOMPLETE'].includes(status)) kind = 'partial';
+  else if (['RUNNING', 'PENDING', 'WAITING', 'IN_REVIEW'].includes(status)) kind = 'review';
 
-  if (['REJECTED', 'FAILED', 'ERROR', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(status)) {
-    mark.textContent = '!';
-    mark.className = 'mark bad';
-    title.textContent = 'Nous n’avons pas pu finaliser la vérification';
-    text.textContent = 'Vous pouvez réessayer depuis le début.';
-  } else if (['ABORTED', 'INCOMPLETE'].includes(status)) {
-    mark.textContent = '!';
-    mark.className = 'mark warn';
-    title.textContent = 'La vérification est restée incomplète';
-    text.textContent = 'Vous pouvez la reprendre quand vous le souhaitez.';
-  } else if (['RUNNING', 'PENDING', 'WAITING', 'IN_REVIEW'].includes(status)) {
-    title.textContent = 'Votre vérification est en cours d’examen';
-    text.textContent = 'Un opérateur va l’examiner. Vous n’avez rien d’autre à faire.';
+  const KEYS = {
+    received: ['ret.received', 'ret.close'],
+    bad: ['ret.badTitle', 'ret.badText'],
+    partial: ['ret.partialTitle', 'ret.partialText'],
+    review: ['ret.reviewTitle', 'ret.reviewText'],
+  };
+
+  function render() {
+    const mark = document.getElementById('mark');
+    mark.textContent = kind === 'bad' || kind === 'partial' ? '!' : '✓';
+    mark.className = 'mark' + (kind === 'bad' ? ' bad' : kind === 'partial' ? ' warn' : '');
+    document.getElementById('title').textContent = t(KEYS[kind][0]);
+    document.getElementById('text').textContent = t(KEYS[kind][1]);
+    document.getElementById('ref').innerHTML = status
+      ? esc(t('ret.status')) + '<code>' + esc(status) + '</code>'
+      : '';
   }
+  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  document.getElementById('ref').innerHTML = status
-    ? 'Statut : <code>' + status.replace(/[<>&]/g, '') + '</code>'
-    : '';
+  applyI18n();
+  render();
 
   // Avisamos a la web de la demo para que muestre el retorno en la consola
   if (window.parent !== window) {

@@ -81,7 +81,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .flow .name { font-weight: 700; font-size: 15px; }
 .flow .desc { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
 .flow .level { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--brand-deep); }
-.flow.busy .name::after { content: " · création de la demande…"; font-weight: 500; color: var(--muted); font-size: 12.5px; }
+.flow.busy .name::after { content: " · " attr(data-busy); font-weight: 500; color: var(--muted); font-size: 12.5px; }
 
 .banner {
   background: #FFF4E0; border: 1px solid #F1D49B; color: #7A4B00;
@@ -298,3 +298,18 @@ table.tbl tr.click:hover td { background: var(--paper); }
 .lock .field { margin-bottom: 12px; }
 
 @media (max-width: 1000px) { .app.admin { overflow: visible; } }
+
+/* ============ Selector de idioma ============ */
+.langs { display: flex; gap: 2px; margin-right: 12px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.langs button {
+  background: none; border: 0; border-radius: 8px; padding: 4px 10px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.langs button:hover { color: var(--ink); background: var(--paper); }
+.langs button[aria-pressed="true"] { color: #fff; background: var(--brand); }
+.top .topnav { margin-right: 12px; }
+
+@media (max-width: 900px) {
+  .top { padding: 0 12px; gap: 8px; }
+  .brand .sub, .env { display: none; }
+}

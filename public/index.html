@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cofidis · Entrée en relation client · Démo de vérification d'identité</title>
+<title data-i18n="index.title">Cofidis · Entrée en relation client · Démo de vérification d’identité</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -14,46 +14,51 @@
 <header class="top">
   <div class="brand">
     <span class="wordmark">cofidis</span>
-    <span class="sub">Entrée en relation client · Espagne</span>
+    <span class="sub" data-i18n="hdr.sub">Entrée en relation client · Espagne</span>
   </div>
-  <nav class="topnav" aria-label="Navigation">
-    <a href="/" aria-current="page">Démo</a>
-    <a href="/admin.html">Administration</a>
+  <nav class="topnav" aria-label="Navigation" data-i18n-attr="aria-label:nav.label">
+    <a href="/" aria-current="page" data-i18n="nav.demo">Démo</a>
+    <a href="/admin.html" data-i18n="nav.admin">Administration</a>
   </nav>
-  <span class="env">Environnement de test</span>
+  <div class="langs" role="group" aria-label="Langue" data-i18n-attr="aria-label:lang.label">
+    <button type="button" data-setlang="es" aria-pressed="false">Español</button>
+    <button type="button" data-setlang="fr" aria-pressed="true">Français</button>
+    <button type="button" data-setlang="en" aria-pressed="false">English</button>
+  </div>
+  <span class="env" data-i18n="hdr.env">Environnement de test</span>
 </header>
 
 <div class="layout">
   <main class="app">
-    <p class="intro">Choisissez un type de vérification. Le site crée la demande dans Namirial Onboarding et ouvre ici même le parcours d'identification ; à droite, vous voyez l'appel effectué et les notifications reçues.</p>
+    <p class="intro" data-i18n="index.intro">Choisissez un type de vérification. Le site crée la demande dans Namirial Onboarding et ouvre ici même le parcours d'identification ; à droite, vous voyez l'appel effectué et les notifications reçues.</p>
 
     <div class="banner" id="banner" hidden></div>
 
-    <nav class="flows" id="flows" aria-label="Type de vérification"></nav>
+    <nav class="flows" id="flows" aria-label="Type de vérification" data-i18n-attr="aria-label:index.flowsLabel"></nav>
 
     <section class="stage" aria-live="polite">
       <div class="empty" id="empty">
-        <strong>Aucune vérification en cours</strong>
-        Dès que vous choisirez un parcours, le processus client s'affichera ici.
+        <strong id="emptyTitle">Aucune vérification en cours</strong>
+        <span id="emptyText">Dès que vous choisirez un parcours, le processus client s’affichera ici.</span>
       </div>
       <div class="frame" id="frame" hidden>
         <div class="frame-bar">
           <span class="frame-url" id="frameUrl"></span>
-          <a class="link-btn" id="frameOpen" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a>
-          <button class="link-btn" id="frameClose" type="button">Fermer</button>
+          <a class="link-btn" id="frameOpen" target="_blank" rel="noopener" data-i18n="index.open">Ouvrir dans un nouvel onglet</a>
+          <button class="link-btn" id="frameClose" type="button" data-i18n="index.close">Fermer</button>
         </div>
-        <iframe id="iframe" title="Processus de vérification d'identité"
+        <iframe id="iframe" title="Processus de vérification d’identité" data-i18n-attr="title:index.iframeTitle"
                 allow="camera *; microphone *; fullscreen *; geolocation *; clipboard-write *"></iframe>
       </div>
     </section>
   </main>
 
-  <aside class="console" aria-label="Console d'intégration">
+  <aside class="console" aria-label="Console d’intégration" data-i18n-attr="aria-label:con.label">
     <div class="con-head">
-      <h2>Console d'intégration</h2>
+      <h2 data-i18n="con.title">Console d’intégration</h2>
       <div class="con-actions">
-        <button class="cbtn" id="btnStatus" type="button" disabled>Consulter le statut</button>
-        <button class="cbtn" id="btnClear" type="button">Effacer</button>
+        <button class="cbtn" id="btnStatus" type="button" disabled data-i18n="con.status">Consulter le statut</button>
+        <button class="cbtn" id="btnClear" type="button" data-i18n="con.clear">Effacer</button>
       </div>
     </div>
 
@@ -66,6 +71,7 @@
 </div>
 
 
+<script src="/i18n.js"></script>
 <script src="/console.js"></script>
 <script>
 /* ============ Flujos ============ */
@@ -73,22 +79,32 @@ async function loadFlows() {
   const r = await fetch('/api/flows');
   const d = await r.json();
   state.flows = d.flows;
-  const banner = $('#banner');
-  if (!d.configured) {
-    banner.hidden = false;
-    banner.textContent = 'Le serveur n’a pas de clé d’API Namirial (NAMIRIAL_API_KEY). Les boutons ne pourront pas créer de demandes tant qu’elle n’est pas ajoutée.';
-  }
+  state.noKey = !d.configured;
+  renderBanner();
   renderFlows();
+}
+
+function renderBanner() {
+  const banner = $('#banner');
+  banner.hidden = !state.noKey;
+  banner.textContent = state.noKey ? t('index.noKey') : '';
+}
+
+// Texto del flujo en el idioma activo; si no hay traducción, el que envía el servidor
+function flowText(f, part) {
+  const k = `flow.${f.id}.${part}`;
+  const v = t(k);
+  return v === k ? f[part] : v;
 }
 
 function renderFlows(busyId) {
   $('#flows').innerHTML = state.flows.map((f) => `
-    <button class="flow ${busyId === f.id ? 'busy' : ''}" data-flow="${f.id}" type="button"
+    <button class="flow ${busyId === f.id ? 'busy' : ''}" data-flow="${f.id}" data-busy="${esc(t('index.busy'))}" type="button"
             aria-pressed="${state.activeFlow === f.id}" ${f.ready && !busyId ? '' : 'disabled'}
-            ${f.ready ? '' : 'title="Le requestTypeId de ce parcours n’est pas configuré sur le serveur"'}>
+            ${f.ready ? '' : `title="${esc(t('index.notReady'))}"`}>
       <span class="name">${esc(f.name)}</span>
-      <span class="desc">${esc(f.desc)}</span>
-      <span class="level">${esc(f.level)}</span>
+      <span class="desc">${esc(flowText(f, 'desc'))}</span>
+      <span class="level">${esc(flowText(f, 'level'))}</span>
     </button>`).join('');
 }
 
@@ -104,25 +120,32 @@ async function startFlow(id) {
     });
     const d = await r.json();
     if (d.trace) addCall(d.trace);
-    if (d.error && !d.trace) showError(d.error);
+    if (d.error && !d.trace) showError(d.code ? { key: 'err.' + d.code, vars: { name: d.name } } : { raw: d.error });
     if (d.ok && d.link) {
       state.reqId = d.requestId;
       $('#btnStatus').disabled = !d.requestId;
       openFrame(d.link);
     } else if (!d.error) {
-      showError('Namirial n’a pas renvoyé de lien. Consultez la réponse dans la console.');
+      showError({ key: 'index.noLink' });
     }
   } catch (e) {
-    showError('Impossible de joindre le serveur de la démo.');
+    showError({ key: 'index.errNetwork' });
   }
   renderFlows();
   renderWebhooks();
 }
 
-function showError(msg) {
-  const el = $('#empty');
-  el.hidden = false;
-  el.innerHTML = `<strong>Impossible de démarrer la vérification</strong>${esc(msg)}`;
+function showError(err) {
+  state.err = err;
+  $('#empty').hidden = false;
+  renderEmpty();
+}
+
+// Texto del espacio vacío: mensaje por defecto o error, en el idioma activo
+function renderEmpty() {
+  const e = state.err;
+  $('#emptyTitle').textContent = e ? t('index.errTitle') : t('index.emptyTitle');
+  $('#emptyText').textContent = e ? (e.key ? t(e.key, e.vars) : e.raw) : t('index.emptyText');
 }
 
 function openFrame(link) {
@@ -136,9 +159,9 @@ function openFrame(link) {
 function closeFrame() {
   $('#frame').hidden = true;
   $('#iframe').src = 'about:blank';
-  const el = $('#empty');
-  el.hidden = false;
-  el.innerHTML = '<strong>Aucune vérification en cours</strong>Dès que vous choisirez un parcours, le processus client s’affichera ici.';
+  state.err = null;
+  $('#empty').hidden = false;
+  renderEmpty();
 }
 
 
@@ -176,7 +199,18 @@ document.addEventListener('click', async (e) => {
   if (e.target.id === 'frameClose') { closeFrame(); state.activeFlow = null; renderFlows(); }
 });
 
+/* ============ Idioma ============ */
+document.addEventListener('langchange', () => {
+  renderBanner();
+  renderFlows();
+  renderEmpty();
+  renderApi();
+  renderWebhooks();
+});
+
 /* ============ Arranque ============ */
+applyI18n();
+renderEmpty();
 renderApi();
 renderWebhooks();
 loadFlows();

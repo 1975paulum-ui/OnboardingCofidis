@@ -76,6 +76,15 @@ Para activarla, define `ADMIN_TOKEN` en Render. Al abrir la página, pide ese je
 
 El servidor solo reenvía a Namirial una lista cerrada de llamadas y solo para los request types de la demo. Si `WEBHOOK_AUTH_VALUE` está definida, el secreto lo añade el servidor y en la consola solo se ve un marcador.
 
+## Idiomas (es · fr · en)
+
+La cabecera de las dos páginas tiene tres botones (Español, Français, English). Al pulsarlos cambian todos los textos de la demo, de la administración y de la pantalla de retorno que se ve dentro del iframe. La elección se guarda en el navegador; por defecto, francés.
+
+- Los textos están en `public/i18n.js`, un diccionario por idioma con las mismas claves. Para corregir o añadir un texto, edita ese archivo.
+- Para añadir un idioma, copia el bloque `fr`, tradúcelo, añade el código a `LANGS` y `LOCALES`, y un botón con `data-setlang` en la cabecera.
+- El selector solo cambia el idioma de **estas páginas**. El idioma del proceso de identificación de Namirial es otro ajuste: variable `NAMIRIAL_LANGUAGE` o, en caliente, el campo «Langue du parcours» de la administración.
+- Los textos que genera Namirial dentro de su asistente no dependen de este selector.
+
 ## Puntos a vigilar
 
 - **Iframe bloqueado.** Si la página de Namirial envía `X-Frame-Options` o `Content-Security-Policy: frame-ancestors`, el navegador no la mostrará dentro de tu web. Pide a Namirial que autorice tu dominio de Render. Mientras tanto, el botón "Abrir en pestaña nueva" sirve de salida.

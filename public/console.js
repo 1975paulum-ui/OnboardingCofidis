@@ -1,17 +1,17 @@
 /* Consola de integración compartida por la demo (index.html) y la administración (admin.html).
    Muestra las llamadas a la API (estilo Postman) y los webhooks que llegan en directo. */
 
-const DEFAULT_API_HINT = "Lorsque vous choisissez un parcours, vous voyez ici l'appel exact que le serveur envoie à l'API Namirial Onboarding : adresse, en-têtes, paramètres et réponse.";
+// state.apiHintKey permite a cada página elegir su texto de ayuda (clave de i18n)
 
 /* ============ Utilidades ============ */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour12: false });
+const clock = (iso) => new Date(iso).toLocaleTimeString(localeTag(), { hour12: false });
 const bytes = (n) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`);
 
 function hl(v) {
   const s = typeof v === 'string' ? v : JSON.stringify(v, null, 2);
-  if (s === undefined || s === null || s === '') return '<span class="muted">(vide)</span>';
+  if (s === undefined || s === null || s === '') return `<span class="muted">${esc(t('con.empty'))}</span>`;
   const re = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g;
   let out = '', last = 0, m;
   while ((m = re.exec(s))) {
@@ -26,7 +26,7 @@ function hl(v) {
 
 function kvTable(obj) {
   const rows = Object.entries(obj || {});
-  if (!rows.length) return '<p class="hint">Aucune donnée.</p>';
+  if (!rows.length) return `<p class="hint">${esc(t('con.noData'))}</p>`;
   return `<table class="kv">${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</td></tr>`).join('')}</table>`;
 }
 
@@ -78,8 +78,8 @@ function renderApi() {
   const pane = $('#apiPane');
   const c = state.calls.find((x) => x.id === state.selected);
   if (!c) {
-    pane.innerHTML = `<div class="pane-title"><h3>Appel et réponse</h3></div>
-      <p class="hint">${esc(state.apiHint || DEFAULT_API_HINT)}</p>`;
+    pane.innerHTML = `<div class="pane-title"><h3>${esc(t('con.callAndResp'))}</h3></div>
+      <p class="hint">${esc(t(state.apiHintKey || 'con.hintDefault'))}</p>`;
     return;
   }
   const q = c.request.query || {};
@@ -98,7 +98,7 @@ function renderApi() {
     `<button class="tab" role="tab" data-group="${group}" data-tab="${key}" aria-selected="${state[group + 'Tab'] === key}">${label}${n != null ? `<span class="n">${n}</span>` : ''}</button>`;
 
   pane.innerHTML = `
-    <div class="pane-title"><h3>Appel</h3><button class="cbtn" id="btnCurl" type="button">Copier le cURL</button></div>
+    <div class="pane-title"><h3>${esc(t('con.call'))}</h3><button class="cbtn" id="btnCurl" type="button">${esc(t('con.copyCurl'))}</button></div>
     <div class="reqbar"><span class="m ${c.request.method}">${c.request.method}</span><span class="u">${esc(c.request.url)}</span></div>
     <div class="tabs" role="tablist">
       ${tab('req', 'params', 'Params', Object.keys(q).length)}
@@ -108,8 +108,8 @@ function renderApi() {
     ${reqPane}
 
     <div class="pane-title" style="margin-top:18px">
-      <h3>Réponse</h3>
-      <span class="status"><span class="st ${cls}">${res.status || 'Erreur'} ${esc(res.statusText || '')}</span><span class="muted">${res.ms} ms</span><span class="muted">${bytes(res.size)}</span></span>
+      <h3>${esc(t('con.response'))}</h3>
+      <span class="status"><span class="st ${cls}">${res.status || esc(t('con.error'))} ${esc(res.statusText || '')}</span><span class="muted">${res.ms} ms</span><span class="muted">${bytes(res.size)}</span></span>
     </div>
     <div class="tabs" role="tablist">
       ${tab('res', 'body', 'Body')}
@@ -125,7 +125,7 @@ function mentionsRequest(e, reqId) {
 }
 
 function badgeFor(e) {
-  if (e.source === 'return') return `<span class="badge ret">retour de l'utilisateur</span>`;
+  if (e.source === 'return') return `<span class="badge ret">${esc(t('con.returnBadge'))}</span>`;
   const st = (e.body?.request?.status || '').toUpperCase();
   if (!st) return '';
   const good = ['COMPLETED', 'APPROVED', 'ACCEPTED', 'FINALIZED'];
@@ -157,14 +157,14 @@ function renderWebhooks() {
 
   pane.innerHTML = `
     <div class="pane-title">
-      <h3>Webhooks reçus <span class="muted">(${list.length})</span></h3>
-      <span class="live"><span class="dot ${state.live ? 'on' : ''}"></span>${state.live ? 'En écoute' : 'Reconnexion…'}</span>
+      <h3>${esc(t('con.whTitle'))} <span class="muted">(${list.length})</span></h3>
+      <span class="live"><span class="dot ${state.live ? 'on' : ''}"></span>${esc(state.live ? t('con.live') : t('con.reconnecting'))}</span>
     </div>
     <div class="wh-tools" style="margin-bottom:10px">
-      <label><input type="checkbox" id="chkAll" ${state.showAll ? 'checked' : ''}> Afficher aussi les autres demandes${hidden > 0 && !state.showAll ? ` (${hidden} masqués)` : ''}</label>
+      <label><input type="checkbox" id="chkAll" ${state.showAll ? 'checked' : ''}> ${esc(t('con.showAll'))}${hidden > 0 && !state.showAll ? ' ' + esc(t('con.hidden', { n: hidden })) : ''}</label>
     </div>
     ${items ? `<ul class="wh-list">${items}</ul>` :
-      `<p class="hint">Les notifications envoyées par Namirial à ce site s'afficheront ici à chaque changement de statut de la demande.</p>`}`;
+      `<p class="hint">${esc(t('con.whHint'))}</p>`}`;
 }
 
 function pushEvent(e, fresh) {
@@ -214,7 +214,7 @@ document.addEventListener('click', async (e) => {
 
   if (e.target.id === 'btnCurl') {
     const c = state.calls.find((x) => x.id === state.selected);
-    if (c) { await navigator.clipboard.writeText(toCurl(c)); e.target.textContent = 'Copié'; setTimeout(() => (e.target.textContent = 'Copier le cURL'), 1500); }
+    if (c) { await navigator.clipboard.writeText(toCurl(c)); e.target.textContent = t('con.copied'); setTimeout(() => (e.target.textContent = t('con.copyCurl')), 1500); }
     return;
   }
 
